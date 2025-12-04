@@ -1,0 +1,37 @@
+#ifndef _BUTTON_HANDLER_HPP_
+#define _BUTTON_HANDLER_HPP_
+
+#include "esp_err.h"
+
+namespace button {
+
+    enum class event_t : uint8_t {
+        NO_EVENT = 0,
+        NEXT_BUTTON_PRESSED,
+        PREV_BUTTON_PRESSED
+    };
+
+    /**
+     * @brief Initialize button GPIO and ISR handlers
+     * 
+     * @return ESP_OK on success, error code otherwise
+     */
+    esp_err_t init(void);
+
+    /**
+     * @brief Deinitialize button handler
+     * 
+     * @return ESP_OK on success, error code otherwise
+     */
+    esp_err_t deinit(void);
+
+    /** 
+     * @brief 
+     * 
+     * @return Handle to queue in which events are passed
+     */
+    QueueHandle_t get_queue();
+    
+} // namespace button
+
+#endif // _BUTTON_HANDLER_HPP_
