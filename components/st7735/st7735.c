@@ -41,7 +41,7 @@ static const uint8_t ST7735_COLMOD                           = 0x3A;
 // Configuration and default settings
 #define ST7735_TIMEOUT_MS                                    50U
 #define ST7735_DEFAULT_MAX_RETRIES                           3U
-#define ST7735_DEFAULT_QUEUE_SIZE                            5U
+#define ST7735_DEFAULT_QUEUE_SIZE                            10U
 #define ST7735_DEFAULT_TASK_PRIORITY                         6U
 #define ST7735_DEFAULT_TASK_CORE                             1U
 #define ST7735_DEFAULT_TASK_STACK_SIZE                       4096U
@@ -420,22 +420,23 @@ esp_err_t st7735_set_screen(uint16_t color, st7735_flush_cb_t callback, void* us
     }
 
     const uint8_t num_of_times_to_send_pixels = driver.config.width * driver.config.height / num_of_pixels;
-    uint8_t y1 = 0;
+    const uint8_t offset = driver.config.height / num_of_times_to_send_pixels;
+    uint8_t y1 = 0, y2 = offset;
 
+    // Send data in batches
     for (uint8_t i = 0; i < num_of_times_to_send_pixels; i++) {    
         // Package flush request
         st7735_flush_req_t req = {
             .x1 = 0,
             .y1 = y1,
             .x2 = driver.config.width - 1,
-            .y2 = driver.config.height - 1,
+            .y2 = y2,
             .pixels = pixels_buf,
             .pixel_count = num_of_pixels,
+            // Only send callback when we are done with all data transfer
             .callback = (i == num_of_times_to_send_pixels - 1) ? callback : NULL,
             .user_data = user_data
         };
-        y1 += driver.config.height / num_of_times_to_send_pixels;
-
 
         // Send to queue
         if (xQueueSend(driver.flush_queue, &req, pdMS_TO_TICKS(ST7735_TIMEOUT_MS)) != pdTRUE) {
@@ -445,6 +446,9 @@ esp_err_t st7735_set_screen(uint16_t color, st7735_flush_cb_t callback, void* us
             xSemaphoreGive(driver.task_mutex);
             return ESP_ERR_NO_MEM;
         }
+
+        y1 = y2;
+        y2 += offset;
     }
 
     xSemaphoreGive(driver.task_mutex);
@@ -489,7 +493,9 @@ static void st7735_task(void* arg) {
     while (!driver.shutdown_requested) {
         // Wait for flush request so we can check shutdown flag
         if (xQueueReceive(driver.flush_queue, &req, pdMS_TO_TICKS(ST7735_TIMEOUT_MS)) == pdTRUE) {
+
             if (driver.shutdown_requested) break; // Check to see if a shutdown has been requested so as not to process dummy data
+
             // Mark driver as busy
             if (xSemaphoreTake(driver.task_mutex, pdMS_TO_TICKS(ST7735_TIMEOUT_MS)) == pdTRUE) {
                 driver.state = ST7735_STATE_BUSY;

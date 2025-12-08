@@ -140,7 +140,7 @@ static void init_all(void) {
         // Retries
         .max_retries = LCD_SPI_MAX_RETRIES,
         // Task configuration
-        .queue_size = 5,
+        .queue_size = 10,
         .task_priority = 6,
         .task_core = 1,
         .task_stack_size = 4096
