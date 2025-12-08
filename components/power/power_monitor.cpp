@@ -30,7 +30,7 @@ namespace adc {
     static constexpr float ACS712_20A_SENSITIVITY               = 0.1;                     // 100mV/A
     static constexpr float CURRENT_OFFSET_VOLTAGE               = 2.25;                    // Volatage reading at 0A
     static constexpr float VOLTAGE_DIVIDER_RATIO                = 5;                       // 1:5 divider
-    static constexpr uint8_t TIMES_TO_MEASURE_ACS_OFFSET        = 20;                      // Times to measure ACS zero current offset voltage
+    static constexpr uint8_t TIMES_TO_MEASURE_ACS_OFFSET        = 25;                      // Times to measure ACS zero current offset voltage
     static constexpr uint16_t ADC_RESOLUTION                    = 4096;                    // 12-bit ADC (2^12)
     
     driver::driver(): zero_current_offset_voltage(0),

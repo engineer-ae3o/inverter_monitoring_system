@@ -39,12 +39,12 @@ static const uint8_t ST7735_MADCTL                           = 0x36;
 static const uint8_t ST7735_COLMOD                           = 0x3A;
 
 // Configuration and default settings
-static const uint8_t ST7735_TIMEOUT_MS                       = 50;
-static const uint8_t ST7735_DEFAULT_MAX_RETRIES              = 3;
-static const uint8_t ST7735_DEFAULT_QUEUE_SIZE               = 5;
-static const uint8_t ST7735_DEFAULT_TASK_PRIORITY            = 6;
-static const uint8_t ST7735_DEFAULT_TASK_CORE                = 1;
-static const uint16_t ST7735_DEFAULT_TASK_STACK_SIZE         = 4096;
+#define ST7735_TIMEOUT_MS                                    50U
+#define ST7735_DEFAULT_MAX_RETRIES                           3U
+#define ST7735_DEFAULT_QUEUE_SIZE                            5U
+#define ST7735_DEFAULT_TASK_PRIORITY                         6U
+#define ST7735_DEFAULT_TASK_CORE                             1U
+#define ST7735_DEFAULT_TASK_STACK_SIZE                       4096U
 
 
 // Driver states
@@ -435,7 +435,7 @@ esp_err_t st7735_set_screen(uint16_t color, st7735_flush_cb_t callback, void* us
             .user_data = user_data
         };
         y1 += driver.config.height / num_of_times_to_send_pixels;
-        
+
 
         // Send to queue
         if (xQueueSend(driver.flush_queue, &req, pdMS_TO_TICKS(ST7735_TIMEOUT_MS)) != pdTRUE) {
