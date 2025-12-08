@@ -285,7 +285,7 @@ void runtime_calc_task(void* arg) {
         TWDT_RESET_FROM_TASK(runtime_calc_task);
 
         if (xQueueReceive(aht_queue, &aht_data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
-            // LOGW("Data not received from aht data queue. Using stale data");
+            LOGW("Data not received from aht data queue. Using stale data");
         }
 
         if (xQueueReceive(power_queue, &power_data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
@@ -320,6 +320,7 @@ void display_task(void* arg) {
     TWDT_ADD_TASK(display_task);
 
     display::bootup_screen();
+    // Arbitrary delay to allow the bootup screen flush properly before creating the UI
     vTaskDelay(pdMS_TO_TICKS(200));
     display::create_ui();
 
