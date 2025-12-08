@@ -33,13 +33,16 @@ namespace config {
     // Pin definitions
     constexpr inline gpio_num_t AHT_SDA_PIN                          = GPIO_NUM_14;
     constexpr inline gpio_num_t AHT_SCL_PIN                          = GPIO_NUM_27;
+
     constexpr inline gpio_num_t CURRENT_SENSOR_PIN                   = GPIO_NUM_33;
     constexpr inline gpio_num_t VOLTAGE_SENSOR_PIN                   = GPIO_NUM_32;
+
     constexpr inline gpio_num_t MOSI_PIN                             = GPIO_NUM_18;
     constexpr inline gpio_num_t SCLK_PIN                             = GPIO_NUM_5;
     constexpr inline gpio_num_t CS_PIN                               = GPIO_NUM_22;
     constexpr inline gpio_num_t DC_PIN                               = GPIO_NUM_19;
     constexpr inline gpio_num_t RST_PIN                              = GPIO_NUM_21;
+    
     constexpr inline gpio_num_t BUTTON_PREV_PIN                      = GPIO_NUM_25;
     constexpr inline gpio_num_t BUTTON_NEXT_PIN                      = GPIO_NUM_26;
     

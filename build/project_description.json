@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "inverter_monitoring_system",
-    "project_version":    "f96bae9-dirty",
+    "project_version":    "39278bd-dirty",
     "project_path":       "C:/Users/user/inverter_monitoring_system",
     "idf_path":           "C:/Espressif/frameworks/esp-idf-v5.3.1",
     "build_dir":          "C:/Users/user/inverter_monitoring_system/build",
