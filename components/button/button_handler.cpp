@@ -7,6 +7,8 @@
 #include "config.hpp"
 
 #include "driver/gpio.h"
+#include "driver/ledc.h"
+#include "esp_timer.h"
 #include "esp_log.h"
 
 #include <cstdint>
@@ -38,11 +40,13 @@ namespace button {
     static uint8_t final_data_queue_stack[config::QUEUE_LENGTH * sizeof(event_t)];
     static StaticQueue_t final_data_queue_buffer;
 
+    static esp_timer_handle_t led_to_50_percent_brightness_timer = nullptr;
+    static esp_timer_handle_t led_to_25_percent_brightness_timer = nullptr;
+    static esp_timer_handle_t led_to_0_percent_brightness_timer = nullptr;
+
 
     // Forward declarations
     static void gpio_cleanup(void);
-    static void IRAM_ATTR next_button_isr(void* arg);
-    static void IRAM_ATTR prev_button_isr(void* arg);
     static void next_button_debounce_timer_cb(TimerHandle_t xTimer);
     static void prev_button_debounce_timer_cb(TimerHandle_t xTimer);
 
@@ -72,7 +76,12 @@ namespace button {
             return ret;
         }
 
-        ret = gpio_isr_handler_add(config::BUTTON_NEXT_PIN, next_button_isr, nullptr);
+        ret = gpio_isr_handler_add(config::BUTTON_NEXT_PIN,
+            [](void* arg) {
+                BaseType_t higher_priority_task_woken = pdFALSE;
+                xTimerStartFromISR(next_button_debounce_timer_handle, &higher_priority_task_woken);
+            },
+            nullptr);
         if (ret != ESP_OK) {
             BTN_LOGE("Failed to add isr for next button gpio: %s", esp_err_to_name(ret));
             gpio_cleanup();
@@ -80,12 +89,105 @@ namespace button {
             return ret;
         }
 
-        ret = gpio_isr_handler_add(config::BUTTON_PREV_PIN, prev_button_isr, nullptr);
+        ret = gpio_isr_handler_add(config::BUTTON_PREV_PIN, 
+            [](void* arg) {
+                BaseType_t higher_priority_task_woken = pdFALSE;
+                xTimerStartFromISR(prev_button_debounce_timer_handle, &higher_priority_task_woken);
+            },
+            nullptr);
         if (ret != ESP_OK) {
             BTN_LOGE("Failed to add isr for prev button gpio: %s", esp_err_to_name(ret));
             gpio_cleanup();
             gpio_uninstall_isr_service();
             gpio_isr_handler_remove(config::BUTTON_NEXT_PIN);
+            return ret;
+        }
+
+        const ledc_timer_config_t led_timer_config = {
+            .speed_mode = LEDC_HIGH_SPEED_MODE,
+            .duty_resolution = LEDC_TIMER_10_BIT,
+            .timer_num = LEDC_TIMER_1,
+            .freq_hz = 20 * 1000,
+            .clk_cfg = LEDC_AUTO_CLK,
+            .deconfigure = false
+        };
+
+        ret = ledc_timer_config(&led_timer_config);
+        if (ret != ESP_OK) {
+            BTN_LOGE("Failed to initialize ledc timer");
+            deinit();
+            return ret;
+        }
+
+        const ledc_channel_config_t led_channel_config = {
+            .gpio_num = static_cast<int>(config::LED_PIN),
+            .speed_mode = LEDC_HIGH_SPEED_MODE,
+            .channel = LEDC_CHANNEL_1,
+            .intr_type = LEDC_INTR_DISABLE,
+            .timer_sel = LEDC_TIMER_1,
+            .duty = 1024,
+            .hpoint = 0,
+            .flags = { .output_invert = 0 }
+        };
+
+        ret = ledc_channel_config(&led_channel_config);
+        if (ret != ESP_OK) {
+            BTN_LOGE("Failed to initialize ledc channel");
+            deinit();
+            return ret;
+        }
+
+        const esp_timer_create_args_t led_to_50_percent_timer = {
+            .callback = [](void* arg) {
+                ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 512);
+                ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
+            },
+            .arg = nullptr,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "led_to_50_percent_timer",
+            .skip_unhandled_events = false
+        };
+
+        ret = esp_timer_create(&led_to_50_percent_timer, &led_to_50_percent_brightness_timer);
+        if (ret != ESP_OK) {
+            BTN_LOGE("Failed to create led_to_50_percent_timer");
+            deinit();
+            return ret;
+        }
+
+        const esp_timer_create_args_t led_to_25_percent_timer = {
+            .callback = [](void* arg) {
+                ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 256);
+                ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
+            },
+            .arg = nullptr,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "led_to_25_percent_timer",
+            .skip_unhandled_events = false
+        };
+
+        ret = esp_timer_create(&led_to_25_percent_timer, &led_to_25_percent_brightness_timer);
+        if (ret != ESP_OK) {
+            BTN_LOGE("Failed to create led_to_25_percent_timer");
+            deinit();
+            return ret;
+        }
+
+        const esp_timer_create_args_t led_to_0_percent_timer = {
+            .callback = [](void* arg) {
+                ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 0);
+                ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
+            },
+            .arg = nullptr,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "led_to_0_percent_timer",
+            .skip_unhandled_events = false
+        };
+
+        ret = esp_timer_create(&led_to_0_percent_timer, &led_to_0_percent_brightness_timer);
+        if (ret != ESP_OK) {
+            BTN_LOGE("Failed to create led_to_0_percent_timer");
+            deinit();
             return ret;
         }
 
@@ -162,16 +264,6 @@ namespace button {
     static void gpio_cleanup(void) {
         gpio_reset_pin(config::BUTTON_NEXT_PIN);
         gpio_reset_pin(config::BUTTON_PREV_PIN);
-    }
-    
-    static void IRAM_ATTR next_button_isr(void* arg) {
-        BaseType_t higher_priority_task_woken = pdFALSE;
-        xTimerStartFromISR(next_button_debounce_timer_handle, &higher_priority_task_woken);
-    }
-
-    static void IRAM_ATTR prev_button_isr(void* arg) {
-        BaseType_t higher_priority_task_woken = pdFALSE;
-        xTimerStartFromISR(prev_button_debounce_timer_handle, &higher_priority_task_woken);
     }
 
     static void next_button_debounce_timer_cb(TimerHandle_t xTimer) {

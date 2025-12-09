@@ -8,7 +8,9 @@ namespace button {
     enum class event_t : uint8_t {
         NO_EVENT = 0,
         NEXT_BUTTON_PRESSED,
-        PREV_BUTTON_PRESSED
+        PREV_BUTTON_PRESSED,
+        NEXT_LONG_PRESSED,
+        PREV_LONG_PRESSED
     };
 
     /**

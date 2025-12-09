@@ -40,7 +40,7 @@ namespace display {
      * 
      * @param[in] data Reference to struct containing data to update the display
      */
-    void update_data(const sys::data_t& data);
+    void update_screen_data(const sys::data_t& data);
 
     /**
      * @brief Switch to next screen

@@ -45,7 +45,7 @@ namespace display {
     static lv_display_t* display                            = nullptr;
     static esp_timer_handle_t lvgl_tick_timer               = nullptr;
 
-    static alerts_t alerts = { voltage_t::OK, current_t::OK, temp_t::OK, hmdt_t::OK, batt_t::OK };
+    static alerts_t alerts                                  = { voltage_t::OK, current_t::OK, temp_t::OK, hmdt_t::OK, batt_t::OK };
 
     
     // Forward declarations
@@ -153,7 +153,8 @@ namespace display {
         DISP_LOGI("UI created");
     }
     
-    void update_data(const sys::data_t& data) {
+    void update_screen_data(const sys::data_t& data) {
+
         switch (current_screen_idx) {
         case 0:
             update_screen_1(data);
@@ -181,7 +182,6 @@ namespace display {
             break;
         default:
             DISP_LOGW("Invalid screen index");
-            update_screen_1(data);
             break;
         }
 
@@ -193,6 +193,7 @@ namespace display {
     void next_screen(void) {
         current_screen_idx = (current_screen_idx + 1) % NUM_SCREENS;
         lv_scr_load(screens[current_screen_idx]);
+
         DISP_LOGI("Switched to screen %d", current_screen_idx);
     }
 
@@ -203,6 +204,7 @@ namespace display {
             current_screen_idx--;
         }
         lv_scr_load(screens[current_screen_idx]);
+
         DISP_LOGI("Switched to screen %d", current_screen_idx);
     }
 

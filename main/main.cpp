@@ -182,7 +182,6 @@ static void queue_create(void) {
     }
 }
 
-
 //LVGL handler task
 void lvgl_handler_task(void* arg) {
 
@@ -341,17 +340,24 @@ void display_task(void* arg) {
 
         if (xQueueReceive(btn_queue, &event, 0) == pdTRUE) {
             if (event == button::event_t::NEXT_BUTTON_PRESSED) {
-                LOGI("NEXT button pressed");
                 display::next_screen();
+                LOGI("NEXT button pressed");
             } else if (event == button::event_t::PREV_BUTTON_PRESSED) {
-                LOGI("PREV button pressed");
                 display::prev_screen();
+                LOGI("PREV button pressed");
+            } else if (event == button::event_t::NEXT_LONG_PRESSED) {
+                // TODO: Implement actual historical graph screen for voltage and current
+                LOGI("NEXT button pressed for at least &u", BUTTON_LONG_PRESS_MS);
+            } else if (event == button::event_t::PREV_LONG_PRESSED) {
+                // TODO: Implement actual historical graph screen for temperature and humidity
+                LOGI("PREV button pressed for at least &u", BUTTON_LONG_PRESS_MS);
             }
         }
 
+        // Give mutex before blocking
         xSemaphoreGive(lvgl_display_mutex);
 
-        // Block till runtime_calc_task tells us we have fresh data to update the screen with
+        // Block till runtime_calc_task tells us we have fresh data to update the current screen
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(TIMEOUT_MS));
 
         if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(TIMEOUT_MS * 2)) != pdTRUE) {
@@ -365,7 +371,7 @@ void display_task(void* arg) {
             continue;
         }
 
-        display::update_data(data);
+        display::update_screen_data(data);
 
         xSemaphoreGive(lvgl_display_mutex);
     }

@@ -42,12 +42,14 @@ namespace config {
     constexpr inline gpio_num_t CS_PIN                               = GPIO_NUM_22;
     constexpr inline gpio_num_t DC_PIN                               = GPIO_NUM_19;
     constexpr inline gpio_num_t RST_PIN                              = GPIO_NUM_21;
+    constexpr inline gpio_num_t LED_PIN                              = GPIO_NUM_23;
     
     constexpr inline gpio_num_t BUTTON_PREV_PIN                      = GPIO_NUM_25;
     constexpr inline gpio_num_t BUTTON_NEXT_PIN                      = GPIO_NUM_26;
     
     // Button specification
     constexpr inline uint16_t BUTTON_DEBOUNCE_US                     = 50 * 1000;
+    constexpr inline uint16_t BUTTON_LONG_PRESS_MS                   = 3 * 1000;
     
     // SPI and LCD Configuration details
     constexpr inline uint16_t LCD_WIDTH                              = 128;
