@@ -163,7 +163,7 @@ namespace button {
         gpio_reset_pin(config::BUTTON_NEXT_PIN);
         gpio_reset_pin(config::BUTTON_PREV_PIN);
     }
-
+    
     static void IRAM_ATTR next_button_isr(void* arg) {
         BaseType_t higher_priority_task_woken = pdFALSE;
         xTimerStartFromISR(next_button_debounce_timer_handle, &higher_priority_task_woken);
