@@ -5,7 +5,7 @@
 #include <cstring>
 
 
-#define ADC_DEBUG 1
+#define ADC_DEBUG 0
 
 #if ADC_DEBUG == 1
 static const char* TAG = "ADC";

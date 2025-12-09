@@ -51,7 +51,7 @@ namespace display {
     };
 
 
-    [[nodiscard]] bool check_set_alerts(const sys::data_t& data, alerts_t& alert);
+    bool check_set_alerts(const sys::data_t& data, alerts_t& alert);
 
     void display_warnings_if_alerts(const alerts_t& alert);
 

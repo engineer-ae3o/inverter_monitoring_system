@@ -1,6 +1,7 @@
 #include "screens.hpp"
 #include "colors.hpp"
 
+
 namespace display {
 
     // Screen 1: Battery Focus

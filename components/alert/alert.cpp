@@ -2,7 +2,7 @@
 
 namespace display {
 
-    [[nodiscard]] bool check_set_alerts(const sys::data_t& data, alerts_t& alert) {
+    bool check_set_alerts(const sys::data_t& data, alerts_t& alert) {
         bool alerts_present = false;
         
         return alerts_present;

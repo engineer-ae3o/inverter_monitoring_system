@@ -2,11 +2,11 @@
 
 #include "display.hpp"
 #include "st7735.h"
-#include "utils/colors.hpp"
-#include "utils/vhorde_logo.h"
+#include "colors.hpp"
+#include "vhorde_logo.h"
 #include "config.hpp"
-#include "screens/screens.hpp"
-#include "alert/alert.hpp"
+#include "screens.hpp"
+#include "alert.hpp"
 
 #include "esp_log.h"
 #include "esp_err.h"
