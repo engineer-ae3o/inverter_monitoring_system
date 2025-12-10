@@ -29,6 +29,11 @@ namespace config {
     constexpr inline uint16_t LVGL_TASK_PRIORITY                     = 4;
     constexpr inline uint16_t LVGL_TASK_CORE                         = 1;
     constexpr inline uint16_t LVGL_TASK_PERIOD_MS                    = 33;
+
+    // constexpr inline uint16_t LOG_DATA_TASK_STACK_SIZE               = 3072;
+    // constexpr inline uint16_t LOG_DATA_TASK_PRIORITY                 = 4;
+    // constexpr inline uint16_t LOG_DATA_TASK_CORE                     = 0;
+    // constexpr inline uint16_t LOG_DATA_READ_PERIOD_MS                = 30 * 1000;
     
     // Pin definitions
     constexpr inline gpio_num_t AHT_SDA_PIN                          = GPIO_NUM_14;
@@ -48,8 +53,13 @@ namespace config {
     constexpr inline gpio_num_t BUTTON_NEXT_PIN                      = GPIO_NUM_26;
     
     // Button specification
-    constexpr inline uint16_t BUTTON_DEBOUNCE_US                     = 50 * 1000;
-    constexpr inline uint16_t BUTTON_LONG_PRESS_MS                   = 3 * 1000;
+    constexpr inline uint16_t BUTTON_DEBOUNCE_US                     = 50 * 1000; // 30ms
+    constexpr inline uint16_t BUTTON_LONG_PRESS_MS                   = 3 * 1000;  // 3s
+
+    // LED brightness control
+    constexpr inline uint32_t TIME_TO_LED_50_PERCENT_BRIGHTNESS_US   = 30 * 1000 * 1000; // 30s
+    constexpr inline uint32_t TIME_TO_LED_25_PERCENT_BRIGHTNESS_US   = 15 * 1000 * 1000; // 15s
+    constexpr inline uint32_t TIME_TO_LED_0_PERCENT_BRIGHTNESS_US    = 10 * 1000 * 1000; // 10s
     
     // SPI and LCD Configuration details
     constexpr inline uint16_t LCD_WIDTH                              = 128;

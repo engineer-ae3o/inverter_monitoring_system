@@ -8,7 +8,6 @@
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
-#include "esp_timer.h"
 #include "esp_log.h"
 
 #include <cstdint>
@@ -44,14 +43,17 @@ namespace button {
     static esp_timer_handle_t led_to_25_percent_brightness_timer = nullptr;
     static esp_timer_handle_t led_to_0_percent_brightness_timer = nullptr;
 
+    static bool screen_is_on = false;
+
 
     // Forward declarations
     static void gpio_cleanup(void);
+    static void update_display_led_and_timers(void);
     static void next_button_debounce_timer_cb(TimerHandle_t xTimer);
     static void prev_button_debounce_timer_cb(TimerHandle_t xTimer);
 
 
-    esp_err_t init(void) {
+    esp_err_t init(esp_timer_handle_t* led_timer_handle) {
 
         BTN_LOGI("Initializing button handler");
 
@@ -103,7 +105,7 @@ namespace button {
             return ret;
         }
 
-        const ledc_timer_config_t led_timer_config = {
+        const ledc_timer_config_t display_led_timer_config = {
             .speed_mode = LEDC_HIGH_SPEED_MODE,
             .duty_resolution = LEDC_TIMER_10_BIT,
             .timer_num = LEDC_TIMER_1,
@@ -112,25 +114,25 @@ namespace button {
             .deconfigure = false
         };
 
-        ret = ledc_timer_config(&led_timer_config);
+        ret = ledc_timer_config(&display_led_timer_config);
         if (ret != ESP_OK) {
             BTN_LOGE("Failed to initialize ledc timer");
             deinit();
             return ret;
         }
 
-        const ledc_channel_config_t led_channel_config = {
+        const ledc_channel_config_t display_led_channel_config = {
             .gpio_num = static_cast<int>(config::LED_PIN),
             .speed_mode = LEDC_HIGH_SPEED_MODE,
             .channel = LEDC_CHANNEL_1,
             .intr_type = LEDC_INTR_DISABLE,
             .timer_sel = LEDC_TIMER_1,
-            .duty = 1024,
+            .duty = 1023,
             .hpoint = 0,
             .flags = { .output_invert = 0 }
         };
 
-        ret = ledc_channel_config(&led_channel_config);
+        ret = ledc_channel_config(&display_led_channel_config);
         if (ret != ESP_OK) {
             BTN_LOGE("Failed to initialize ledc channel");
             deinit();
@@ -141,6 +143,7 @@ namespace button {
             .callback = [](void* arg) {
                 ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 512);
                 ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
+                esp_timer_start_once(led_to_25_percent_brightness_timer, config::TIME_TO_LED_25_PERCENT_BRIGHTNESS_US);
             },
             .arg = nullptr,
             .dispatch_method = ESP_TIMER_TASK,
@@ -159,6 +162,7 @@ namespace button {
             .callback = [](void* arg) {
                 ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 256);
                 ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
+                esp_timer_start_once(led_to_0_percent_brightness_timer, config::TIME_TO_LED_0_PERCENT_BRIGHTNESS_US);
             },
             .arg = nullptr,
             .dispatch_method = ESP_TIMER_TASK,
@@ -177,6 +181,7 @@ namespace button {
             .callback = [](void* arg) {
                 ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 0);
                 ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
+                screen_is_on = false;
             },
             .arg = nullptr,
             .dispatch_method = ESP_TIMER_TASK,
@@ -226,6 +231,9 @@ namespace button {
             return ESP_FAIL;
         }
 
+        *led_timer_handle = led_to_50_percent_brightness_timer;
+        screen_is_on = true;
+
         BTN_LOGI("Initialization complete");
 
         return ESP_OK;
@@ -266,16 +274,37 @@ namespace button {
         gpio_reset_pin(config::BUTTON_PREV_PIN);
     }
 
+    static void update_display_led_and_timers(void) {
+        // Increase the screen's brightness back to the max value,
+        ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 1023);
+        ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
+        screen_is_on = true;
+        // then stop all timers immediately
+        esp_timer_stop(led_to_50_percent_brightness_timer);
+        esp_timer_stop(led_to_25_percent_brightness_timer);
+        esp_timer_stop(led_to_0_percent_brightness_timer);
+        // Start the led_to_50_percent_brightness_timer
+        esp_timer_start_once(led_to_50_percent_brightness_timer, config::TIME_TO_LED_50_PERCENT_BRIGHTNESS_US);
+    }
+
     static void next_button_debounce_timer_cb(TimerHandle_t xTimer) {
         if (gpio_get_level(config::BUTTON_NEXT_PIN)) return;
-        event_t event = event_t::NEXT_BUTTON_PRESSED;
-        xQueueSend(event_queue, &event, 0);
+        // Only send button updates if screen is on
+        if (screen_is_on) {
+            event_t event = event_t::NEXT_BUTTON_PRESSED;
+            xQueueSend(event_queue, &event, 0);
+        }
+        update_display_led_and_timers();
     }
 
     static void prev_button_debounce_timer_cb(TimerHandle_t xTimer) {
         if (gpio_get_level(config::BUTTON_PREV_PIN)) return;
-        event_t event = event_t::PREV_BUTTON_PRESSED;
-        xQueueSend(event_queue, &event, 0);
+        // Only send button updates if screen is on
+        if (screen_is_on) {
+            event_t event = event_t::PREV_BUTTON_PRESSED;
+            xQueueSend(event_queue, &event, 0);
+        }
+        update_display_led_and_timers();
     }
 
 } // namespace button

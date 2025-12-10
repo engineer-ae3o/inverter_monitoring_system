@@ -2,6 +2,7 @@
 #define _BUTTON_HANDLER_HPP_
 
 #include "esp_err.h"
+#include "esp_timer.h"
 
 namespace button {
 
@@ -16,9 +17,11 @@ namespace button {
     /**
      * @brief Initialize button GPIO and ISR handlers
      * 
+     * @param[out] led_timer_handle A pointer to the timer handle which is responsible for led dimming
+     * 
      * @return ESP_OK on success, error code otherwise
      */
-    esp_err_t init(void);
+    esp_err_t init(esp_timer_handle_t* led_timer_handle);
 
     /**
      * @brief Deinitialize button handler

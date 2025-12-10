@@ -76,6 +76,11 @@ static TaskHandle_t lvgl_task_handle = nullptr;
 static StackType_t lvgl_task_stack[LVGL_TASK_STACK_SIZE];
 static StaticTask_t lvgl_task_buffer;
 
+// // Log task parameters
+// static TaskHandle_t log_data_task_handle = nullptr;
+// static StackType_t log_data_task_stack[LOG_DATA_TASK_STACK_SIZE];
+// static StaticTask_t log_data_task_buffer;
+
 //  Queue parameters
 // AHT data queue
 static QueueHandle_t aht_queue = nullptr;
@@ -95,6 +100,8 @@ static uint8_t final_data_queue_stack[QUEUE_LENGTH * sizeof(sys::data_t)];
 // Mutex to ensure thread safety across lvgl function calls across different tasks
 static SemaphoreHandle_t lvgl_display_mutex;
 static StaticSemaphore_t lvgl_display_mutex_buffer;
+
+static esp_timer_handle_t display_led_timer_handle = nullptr;
 
 // Instance of the driver class
 static adc::driver power;
@@ -116,7 +123,7 @@ static void init_all(void) {
     }
 
     // Button handler initialization
-    esp_err_t result = button::init();
+    esp_err_t result = button::init(&display_led_timer_handle);
     if (result != ESP_OK) {
         LOGE("Failed to initialize button handler: %s", esp_err_to_name(result));
         sys::handle_error();
@@ -323,6 +330,9 @@ void display_task(void* arg) {
     vTaskDelay(pdMS_TO_TICKS(200));
     display::create_ui();
 
+    ASSERT(display_led_timer_handle, "display_led_timer_handle cannot be null");
+    esp_timer_start_once(display_led_timer_handle, TIME_TO_LED_50_PERCENT_BRIGHTNESS_US);
+
     QueueHandle_t btn_queue = button::get_queue();
     ASSERT(btn_queue, "btn_queue cannot be null");
 
@@ -347,10 +357,10 @@ void display_task(void* arg) {
                 LOGI("PREV button pressed");
             } else if (event == button::event_t::NEXT_LONG_PRESSED) {
                 // TODO: Implement actual historical graph screen for voltage and current
-                LOGI("NEXT button pressed for at least &u", BUTTON_LONG_PRESS_MS);
+                LOGI("NEXT button pressed for at least %u", BUTTON_LONG_PRESS_MS);
             } else if (event == button::event_t::PREV_LONG_PRESSED) {
                 // TODO: Implement actual historical graph screen for temperature and humidity
-                LOGI("PREV button pressed for at least &u", BUTTON_LONG_PRESS_MS);
+                LOGI("PREV button pressed for at least %u", BUTTON_LONG_PRESS_MS);
             }
         }
 
