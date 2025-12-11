@@ -53,13 +53,13 @@ namespace config {
     constexpr inline gpio_num_t BUTTON_NEXT_PIN                      = GPIO_NUM_26;
     
     // Button specification
-    constexpr inline uint16_t BUTTON_DEBOUNCE_US                     = 50 * 1000; // 30ms
-    constexpr inline uint16_t BUTTON_LONG_PRESS_MS                   = 3 * 1000;  // 3s
+    constexpr inline uint16_t BUTTON_DEBOUNCE_US                     = 50 * 1000;          // 30ms
+    constexpr inline uint32_t BUTTON_LONG_PRESS_US                   = 2 * 1000 * 1000;    // 2s
 
     // LED brightness control
-    constexpr inline uint32_t TIME_TO_LED_50_PERCENT_BRIGHTNESS_US   = 30 * 1000 * 1000; // 30s
-    constexpr inline uint32_t TIME_TO_LED_25_PERCENT_BRIGHTNESS_US   = 15 * 1000 * 1000; // 15s
-    constexpr inline uint32_t TIME_TO_LED_0_PERCENT_BRIGHTNESS_US    = 10 * 1000 * 1000; // 10s
+    constexpr inline uint32_t TIME_TO_LED_50_PERCENT_BRIGHTNESS_US   = 30 * 1000 * 1000;   // 30s
+    constexpr inline uint32_t TIME_TO_LED_25_PERCENT_BRIGHTNESS_US   = 15 * 1000 * 1000;   // 15s
+    constexpr inline uint32_t TIME_TO_LED_0_PERCENT_BRIGHTNESS_US    = 10 * 1000 * 1000;   // 10s
     
     // SPI and LCD Configuration details
     constexpr inline uint16_t LCD_WIDTH                              = 128;

@@ -291,7 +291,7 @@ void runtime_calc_task(void* arg) {
         TWDT_RESET_FROM_TASK(runtime_calc_task);
 
         if (xQueueReceive(aht_queue, &aht_data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
-            LOGW("Data not received from aht data queue. Using stale data");
+            // LOGW("Data not received from aht data queue. Using stale data");
         }
 
         if (xQueueReceive(power_queue, &power_data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
@@ -357,10 +357,10 @@ void display_task(void* arg) {
                 LOGI("PREV button pressed");
             } else if (event == button::event_t::NEXT_LONG_PRESSED) {
                 // TODO: Implement actual historical graph screen for voltage and current
-                LOGI("NEXT button pressed for at least %u", BUTTON_LONG_PRESS_MS);
+                LOGI("NEXT button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1000000));
             } else if (event == button::event_t::PREV_LONG_PRESSED) {
                 // TODO: Implement actual historical graph screen for temperature and humidity
-                LOGI("PREV button pressed for at least %u", BUTTON_LONG_PRESS_MS);
+                LOGI("PREV button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1000000));
             }
         }
 

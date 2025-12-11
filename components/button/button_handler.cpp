@@ -13,7 +13,7 @@
 #include <cstdint>
 
 
-#define BTN_DEBUG 0
+#define BTN_DEBUG 1
 
 #if BTN_DEBUG == 1
 static const char* TAG = "BUTTON_HANDLER";
@@ -45,6 +45,9 @@ namespace button {
 
     static bool screen_is_on = false;
 
+    static int64_t start_prev_us = 0;
+    static int64_t start_next_us = 0;
+
 
     // Forward declarations
     static void gpio_cleanup(void);
@@ -62,7 +65,7 @@ namespace button {
             .mode = GPIO_MODE_INPUT,
             .pull_up_en = GPIO_PULLUP_ENABLE,
             .pull_down_en = GPIO_PULLDOWN_DISABLE,
-            .intr_type = GPIO_INTR_NEGEDGE
+            .intr_type = GPIO_INTR_ANYEDGE
         };
 
         esp_err_t ret = gpio_config(&button_config);
@@ -82,6 +85,7 @@ namespace button {
             [](void* arg) {
                 BaseType_t higher_priority_task_woken = pdFALSE;
                 xTimerStartFromISR(next_button_debounce_timer_handle, &higher_priority_task_woken);
+                gpio_intr_disable(config::BUTTON_NEXT_PIN);
             },
             nullptr);
         if (ret != ESP_OK) {
@@ -95,6 +99,7 @@ namespace button {
             [](void* arg) {
                 BaseType_t higher_priority_task_woken = pdFALSE;
                 xTimerStartFromISR(prev_button_debounce_timer_handle, &higher_priority_task_woken);
+                gpio_intr_disable(config::BUTTON_PREV_PIN);
             },
             nullptr);
         if (ret != ESP_OK) {
@@ -275,11 +280,11 @@ namespace button {
     }
 
     static void update_display_led_and_timers(void) {
-        // Increase the screen's brightness back to the max value,
-        ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 1023);
+        // Increase the screen's brightness back to the max value
+        ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1, 1024);
         ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_1);
         screen_is_on = true;
-        // then stop all timers immediately
+        // Stop all timers immediately
         esp_timer_stop(led_to_50_percent_brightness_timer);
         esp_timer_stop(led_to_25_percent_brightness_timer);
         esp_timer_stop(led_to_0_percent_brightness_timer);
@@ -288,22 +293,48 @@ namespace button {
     }
 
     static void next_button_debounce_timer_cb(TimerHandle_t xTimer) {
-        if (gpio_get_level(config::BUTTON_NEXT_PIN)) return;
-        // Only send button updates if screen is on
-        if (screen_is_on) {
-            event_t event = event_t::NEXT_BUTTON_PRESSED;
-            xQueueSend(event_queue, &event, 0);
+        gpio_intr_enable(config::BUTTON_NEXT_PIN);
+
+        event_t event = event_t::NO_EVENT;
+
+        if (gpio_get_level(config::BUTTON_NEXT_PIN) == 0) {
+            start_next_us = esp_timer_get_time();
+        } else if (gpio_get_level(config::BUTTON_NEXT_PIN) == 1) {
+            if (esp_timer_get_time() - start_next_us >= config::BUTTON_LONG_PRESS_US) {
+                event = event_t::NEXT_LONG_PRESSED;
+                start_next_us = 0;
+            } else {
+                event = event_t::NEXT_BUTTON_PRESSED;
+                start_next_us = 0;
+            }
         }
+
+        // Only send button updates if screen is on
+        if (screen_is_on) xQueueSend(event_queue, &event, 0);
+
         update_display_led_and_timers();
     }
 
     static void prev_button_debounce_timer_cb(TimerHandle_t xTimer) {
-        if (gpio_get_level(config::BUTTON_PREV_PIN)) return;
-        // Only send button updates if screen is on
-        if (screen_is_on) {
-            event_t event = event_t::PREV_BUTTON_PRESSED;
-            xQueueSend(event_queue, &event, 0);
+        gpio_intr_enable(config::BUTTON_PREV_PIN);
+
+        event_t event = event_t::NO_EVENT;
+
+        if (gpio_get_level(config::BUTTON_PREV_PIN) == 0) {
+            start_prev_us = esp_timer_get_time();
+        } else if (gpio_get_level(config::BUTTON_PREV_PIN) == 1) {
+            if (esp_timer_get_time() - start_prev_us >= config::BUTTON_LONG_PRESS_US) {
+                event = event_t::PREV_LONG_PRESSED;
+                start_prev_us = 0;
+            } else {
+                event = event_t::PREV_BUTTON_PRESSED;
+                start_prev_us = 0;
+            }
         }
+
+        // Only send button updates if screen is on
+        if (screen_is_on) xQueueSend(event_queue, &event, 0);
+
         update_display_led_and_timers();
     }
 
