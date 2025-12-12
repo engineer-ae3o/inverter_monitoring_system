@@ -47,7 +47,7 @@ namespace config {
     constexpr inline gpio_num_t CS_PIN                               = GPIO_NUM_22;
     constexpr inline gpio_num_t DC_PIN                               = GPIO_NUM_19;
     constexpr inline gpio_num_t RST_PIN                              = GPIO_NUM_21;
-    constexpr inline gpio_num_t LED_PIN                              = GPIO_NUM_23;
+    constexpr inline gpio_num_t LED_PIN                              = GPIO_NUM_12;
     
     constexpr inline gpio_num_t BUTTON_PREV_PIN                      = GPIO_NUM_25;
     constexpr inline gpio_num_t BUTTON_NEXT_PIN                      = GPIO_NUM_26;

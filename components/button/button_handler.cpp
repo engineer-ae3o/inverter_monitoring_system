@@ -216,7 +216,8 @@ namespace button {
                                                                next_button_debounce_timer_cb,
                                                                &next_button_debounce_timer_buffer
         );
-        if(!next_button_debounce_timer_handle) {
+        if(!next_button_debounce_timer_handle) 
+        {
             BTN_LOGE("Failed to create NextButtonDebounceTimer");
             deinit();
             return ESP_FAIL;
@@ -293,12 +294,14 @@ namespace button {
     }
 
     static void next_button_debounce_timer_cb(TimerHandle_t xTimer) {
+
         gpio_intr_enable(config::BUTTON_NEXT_PIN);
 
         event_t event = event_t::NO_EVENT;
 
         if (gpio_get_level(config::BUTTON_NEXT_PIN) == 0) {
             start_next_us = esp_timer_get_time();
+            return;
         } else if (gpio_get_level(config::BUTTON_NEXT_PIN) == 1) {
             if (esp_timer_get_time() - start_next_us >= config::BUTTON_LONG_PRESS_US) {
                 event = event_t::NEXT_LONG_PRESSED;
@@ -316,12 +319,14 @@ namespace button {
     }
 
     static void prev_button_debounce_timer_cb(TimerHandle_t xTimer) {
+
         gpio_intr_enable(config::BUTTON_PREV_PIN);
 
         event_t event = event_t::NO_EVENT;
 
         if (gpio_get_level(config::BUTTON_PREV_PIN) == 0) {
             start_prev_us = esp_timer_get_time();
+            return;
         } else if (gpio_get_level(config::BUTTON_PREV_PIN) == 1) {
             if (esp_timer_get_time() - start_prev_us >= config::BUTTON_LONG_PRESS_US) {
                 event = event_t::PREV_LONG_PRESSED;

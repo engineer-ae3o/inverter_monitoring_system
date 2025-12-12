@@ -68,11 +68,11 @@ This project leverages the ESP-IDF (Espressif IoT Development Framework) and imp
   - Operating humidity: 0% to 100% RH
 
 - **Analog Current Sensor (ACS712-25A Sensor)**
-  - ADC-compatible output
+  - ADC output
   - GPIO33 input
 
 - **Analog Voltage Sensor**
-  - ADC-compatible output
+  - ADC output
   - GPIO32 input
 
 ### Display
@@ -215,24 +215,70 @@ namespace display {
 - **Alerts** (`display/alert`): Alert notification system
 - **Utilities** (`display/utils`): Colors, and assets
 
+### Alert System (`components/alert`)
+
+**Files**: `alert.hpp`, `alert.cpp`
+
+Provides real-time monitoring and alerting for critical system parameters:
+
+```cpp
+namespace display {
+    class alert_subsystem_t {
+    private:
+        enum class voltage_t : int8_t {
+            TOO_LOW = -2, LOW = -1, OK = 0, HIGH = 1
+        };
+        enum class current_t : int8_t {
+            CHARGE_TOO_HIGH = -2, CHARGE_HIGH = -1, OK = 0, HIGH = 1, TOO_HIGH = 2
+        };
+        enum class temp_t : int8_t {
+            TOO_LOW = -2, LOW = -1, OK = 0, HIGH = 1, TOO_HIGH = 2
+        };
+        enum class hmdt_t : int8_t {
+            TOO_LOW = -2, LOW = -1, OK = 0, HIGH = 1, TOO_HIGH = 2
+        };
+        enum class batt_t : uint8_t {
+            OK = 0, BELOW_50, BELOW_15, BELOW_10, BELOW_5
+        };
+    };
+}
+```
+
+**Alert Thresholds**:
+- **Voltage**: Too Low (<9.0V), Low (9.0-10.5V), High (>12.6V)
+- **Current**: Charge Too High (<-15A), High Discharge (>20A), Too High (>25A)
+- **Temperature**: Too Low (<0°C), Low (0-10°C), High (45-60°C), Too High (>60°C)
+- **Humidity**: Too Low (<10%), Low (10-20%), High (70-80%), Too High (>80%)
+- **Battery Level**: Below 50%, 15%, 10%, 5%
+
+**Key Features**:
+- Continuous parameter monitoring during display updates
+- Classification of alert severity levels
+- Popup notification system (LVGL implemented, UI pending)
+- Thread-safe integration with display task
+
 ### Button Input Handler (`components/button`)
 
 **Files**: `button_handler.hpp`, `button_handler.cpp`
 
-Manages GPIO button input with debouncing:
+Manages GPIO button input with debouncing and long press detection:
 
 ```cpp
 enum class event_t : uint8_t {
     NO_EVENT = 0,
     NEXT_BUTTON_PRESSED,
-    PREV_BUTTON_PRESSED
+    PREV_BUTTON_PRESSED,
+    NEXT_LONG_PRESSED,
+    PREV_LONG_PRESSED
 };
 ```
 
 **Features**:
 - 50ms debounce delay
 - ISR based event detection
+- Long press detection (2 seconds (configurable))
 - Thread safe event queue
+- LED brightness control via PWM and the ESP32's ledc periphal
 
 ### System Utilities (`components/system`)
 
@@ -355,12 +401,17 @@ idf.py -p /dev/ttyUSB0 flash
 idf.py -p COM3 monitor
 ```
 
+### 5. To build, flash and monior with one command
+```bash
+idf.py build flash monitor
+```
+
 ## Usage
 
 ### Initial Boot
 
 1. Power on the system
-2. Bootup screen displays with VHorde logo
+2. Bootup screen displays with Vhorde logo
 3. System performs hardware initialization
 4. Main UI appears showing current power metrics
 
@@ -462,9 +513,9 @@ In `main/main.cpp`, toggle debug logging:
 
 | Resource | Used | Total | Utilization |
 |----------|------|-------|------------|
-| RAM | ~150 KB | 328 KB | ~46% |
-| Stack Space | ~30 KB | 60 KB | ~50% |
-| Flash (Code) | ~500 KB | 2 MB | ~25% |
+| DRAM | 144 KB | 177 KB | ~81.4% |
+| IRAM | 94 KB | 128 KB | ~73% |
+| Flash (Code) | 409 KB | ~3.2 MB | ~12.5% |
 
 ### Task Execution Times
 
@@ -491,24 +542,31 @@ In `main/main.cpp`, toggle debug logging:
 
 ```
 inverter_monitoring_system/
-├── main/
-│   ├── main.cpp              # Application entry point
-│   ├── CMakeLists.txt
-│   └── idf_component.yml
+├── .devcontainer/
+├── .vscode/
 ├── components/
 │   ├── power/                # Power monitoring
 │   ├── aht/                  # Temperature/humidity sensor
 │   ├── display/              # UI and graphics
-│   │   ├── screens/          # Information screens
-│   │   ├── alert/            # Alert system
-│   │   └── utils/            # Graphics utilities
-│   ├── button/               # Input handling
-│   ├── system/               # Core data structures
+│   ├── screens/              # UI screens
+│   ├── alert/                # Alert subsystem
+│   ├── utils/                # Graphics utilities
+│   ├── button/               # Input handling and led control
+│   ├── system/               # System utilities and calculations
 │   ├── st7735/               # LCD driver
 │   └── config/               # Configuration
+├── main/
+│   ├── main.cpp              # Application entry point
+│   ├── CMakeLists.txt
+│   ├── lv_conf.h             # LVGL configuration. Copy to your lvgl folder (pulled in automatically when you build)
+│   └── idf_component.yml     # Library dependencies
+├── .clangd
+├── .gitignore
 ├── CMakeLists.txt
-├── sdkconfig                 # Build configuration
-└── README.md                 # Project description - File you're currently reading
+├── dependencies.lock
+├── LICENSE
+├── README.md                 # Project description - You're here
+└── sdkconfig                 # Project configuration
 ```
 
 ### Adding New Components
@@ -525,9 +583,9 @@ inverter_monitoring_system/
                           REQUIRES freertos esp_common)
    ```
 
-3. Add header and source files
+3. Add header and source files as needed
 
-4. Include in main `CMakeLists.txt` if not auto-detected
+4. Include in main `CMakeLists.txt` if not auto detected by CMake
 
 ### Building for Development
 
@@ -540,11 +598,6 @@ idf.py build
 Incremental build:
 ```bash
 idf.py build
-```
-
-Parallel build (faster):
-```bash
-idf.py build -- -j4
 ```
 
 ### Code Style
@@ -587,10 +640,10 @@ idf.py build -- -j4
 #### 5. **Buttons Not Responding**
 - Verify debounce delay isn't too aggressive
 - Check GPIO input levels with multimeter
-- Ensure pull-up/pull-down resistors are correct
-- Review button event handling in display/input code
+- Ensure pull-up resistors are correct
+- Review button event handling in `components/button/button_handler.cpp`
 
-#### 6. **Task Watchdog Triggers**
+#### 6. **Task Watchdog False Triggers**
 - Increase watchdog timeout in menuconfig
 - Reduce task workload or increase stack size
 - Check for infinite loops or blocking operations
@@ -608,13 +661,15 @@ Enable debug logging in `main/main.cpp`:
 
 ```cpp
 #define DEBUG 1
-idf.py monitor  // View real-time logs
+```
+``` bash
+idf.py monitor  # View logs
 ```
 
-Use breakpoints with JTAG debugger:
+Use breakpoints with JTAG debugger (if your ESP32 module has one inbuilt):
 ```bash
 idf.py openocd
-# In another terminal:
+# Open another terminal:
 xtensa-esp32-elf-gdb build/inverter_monitoring_system.elf
 ```
 
@@ -631,18 +686,18 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ### Guidelines
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add AmazingFeature'`)
+3. Commit your changes (`git commit -m Add "AmazingFeatur added"`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
 ### Code Review Process
 - Ensure all changes follow the project's code style
 - Add/update documentation as needed
-- Test changes on actual hardware
+- Test changes on hardware
 - Update README.md if adding new features
 
 ---
 
 **For questions or issues, please open an issue on the GitHub repository.**
 
-Last Updated: December 2025
+Last Updated: December 12, 2025

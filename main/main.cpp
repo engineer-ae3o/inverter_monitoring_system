@@ -291,6 +291,8 @@ void runtime_calc_task(void* arg) {
         TWDT_RESET_FROM_TASK(runtime_calc_task);
 
         if (xQueueReceive(aht_queue, &aht_data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
+            // This is commented out because the AHT20 can only be read from at certain intevals, so we
+            // will get a lot of stale reads, so logging each one would flood the logs
             // LOGW("Data not received from aht data queue. Using stale data");
         }
 
@@ -313,8 +315,6 @@ void runtime_calc_task(void* arg) {
         }
 
         xTaskNotifyGive(display_task_handle);
-
-        vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
 
@@ -350,11 +350,11 @@ void display_task(void* arg) {
 
         if (xQueueReceive(btn_queue, &event, 0) == pdTRUE) {
             if (event == button::event_t::NEXT_BUTTON_PRESSED) {
-                display::next_screen();
                 LOGI("NEXT button pressed");
+                display::next_screen();
             } else if (event == button::event_t::PREV_BUTTON_PRESSED) {
-                display::prev_screen();
                 LOGI("PREV button pressed");
+                display::prev_screen();
             } else if (event == button::event_t::NEXT_LONG_PRESSED) {
                 // TODO: Implement actual historical graph screen for voltage and current
                 LOGI("NEXT button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1000000));

@@ -44,9 +44,6 @@ namespace display {
 
     static lv_display_t* display                            = nullptr;
     static esp_timer_handle_t lvgl_tick_timer               = nullptr;
-
-    static alerts_t alerts                                  = { voltage_t::OK, current_t::OK, temp_t::OK, hmdt_t::OK, batt_t::OK };
-
     
     // Forward declarations
     static void disp_flush_cb(lv_display_t* display, const lv_area_t* area, uint8_t* px_map);
@@ -185,8 +182,10 @@ namespace display {
             break;
         }
 
-        if (check_set_alerts(data, alerts)) {
-            display_warnings_if_alerts(alerts);
+        alert_subsystem_t alerts(data);
+
+        if (alerts.check_set_alerts()) {
+            alerts.display_warnings_if_alerts();
         }
     }
 
