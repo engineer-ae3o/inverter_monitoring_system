@@ -208,13 +208,6 @@ namespace display {
         if (batt_alert_present) {
             batt_alert_popup();
         }
-
-        // Clear for next cycle if any
-        voltage_alert_present = false;
-        current_alert_present = false;
-        temp_alert_present = false;
-        hmdt_alert_present = false;
-        batt_alert_present = false;
     }
     
 } // namespace display

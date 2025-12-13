@@ -12,9 +12,12 @@
 #include "st7735.h"
 
 #include "esp_task_wdt.h"
+#include "esp_littlefs.h"
 #include "esp_err.h"
 #include "esp_timer.h"
 #include "esp_log.h"
+
+#include <cstdio>
 
 
 #define DEBUG 1
@@ -76,10 +79,10 @@ static TaskHandle_t lvgl_task_handle = nullptr;
 static StackType_t lvgl_task_stack[LVGL_TASK_STACK_SIZE];
 static StaticTask_t lvgl_task_buffer;
 
-// // Log task parameters
-// static TaskHandle_t log_data_task_handle = nullptr;
-// static StackType_t log_data_task_stack[LOG_DATA_TASK_STACK_SIZE];
-// static StaticTask_t log_data_task_buffer;
+// Log task parameters
+static TaskHandle_t log_task_handle = nullptr;
+static StackType_t log_task_stack[LOG_TASK_STACK_SIZE];
+static StaticTask_t log_task_buffer;
 
 //  Queue parameters
 // AHT data queue
@@ -100,6 +103,15 @@ static uint8_t final_data_queue_stack[QUEUE_LENGTH * sizeof(sys::data_t)];
 // Mutex to ensure thread safety across lvgl function calls across different tasks
 static SemaphoreHandle_t lvgl_display_mutex;
 static StaticSemaphore_t lvgl_display_mutex_buffer;
+
+// File data
+struct file_data_t {
+    float voltage;
+    float current;
+    float temperature;
+    float humidity;
+};
+constexpr static size_t MAX_FILE_SIZE_BYTES = sizeof(file_data_t) * MAX_SAMPLES_TO_LOG;
 
 static esp_timer_handle_t display_led_timer_handle = nullptr;
 
@@ -130,7 +142,7 @@ static void init_all(void) {
     }
 
     // LCD Initialization
-    st7735_config_t config = {
+    const st7735_config_t config = {
         // SPI configuration
         .spi_host = SPI_LCD_HOST,
         .spi_clock_speed_hz = SPI_CLK_SPEED,
@@ -162,6 +174,22 @@ static void init_all(void) {
     result = display::init();
     if (result != ESP_OK) {
         LOGE("Failed to initialize LVGL and the display interface: %s", esp_err_to_name(result));
+        sys::handle_error();
+    }
+
+    const esp_vfs_littlefs_conf_t littlefs_config = {
+        .base_path = "/storage",
+        .partition_label = "littlefs",
+        .partition = nullptr,
+        .format_if_mount_failed = 1,
+        .read_only = 0,
+        .dont_mount = 0,
+        .grow_on_mount = 1
+    };
+
+    result = esp_vfs_littlefs_register(&littlefs_config);
+    if (result != ESP_OK) {
+        LOGE("Failed to mount littlefs partition: %s", esp_err_to_name(result));
         sys::handle_error();
     }
     
@@ -240,6 +268,84 @@ void aht_task(void* arg) {
         }
 
         vTaskDelay(pdMS_TO_TICKS(AHT_READ_PERIOD_MS));
+    } 
+}
+
+// Log task
+void log_task(void* arg) {
+
+    LOGI("Starting log_task");
+
+    // Open f_data_file for reading and writing in binary format
+    // We first check if the file exists with rb+. If it exists, we proceed
+    // NOTE: rb+ returns NULL if the file doesn't exist
+    FILE* f_data_file = fopen(DATA_FILE_NAME, "rb+");
+    if (!f_data_file) {
+        // If the file doesn't exist, we create it with wb+
+        // We can't use wb+ initially because it zeros out our file whether or not it does exists,
+        // overwriting existing data
+        f_data_file = fopen(DATA_FILE_NAME, "wb+");
+        ASSERT(f_data_file, "f_data_file cannot be null");
+    }
+
+    // Open f_meta_data_file for reading and writing in binary format
+    // We first check if the file exists with rb+. If it exists, we proceed
+    FILE* f_meta_data_file = fopen(META_DATA_FILE_NAME, "rb+");
+    size_t data_file_index = 0;
+    if (!f_meta_data_file) {
+        // If the file doesn't exist, we create it with wb+
+        f_meta_data_file = fopen(META_DATA_FILE_NAME, "wb+");
+        ASSERT(f_meta_data_file, "f_meta_data_file cannot be null");
+        // We then write data_file_index's initial 0 value to it
+        fwrite(&data_file_index, sizeof(data_file_index), 1, f_meta_data_file);
+    } else {
+        // Since the file exists, we read from it and we bounds check against MAX_SAMPLES_TO_LOG
+        fread(&data_file_index, sizeof(data_file_index), 1, f_meta_data_file);
+        if (data_file_index >= MAX_SAMPLES_TO_LOG) {
+            data_file_index = 0;
+        }
+    }
+
+    // Position f_data_file at the next write location (resume from where we left off at the last boot)
+    fseek(f_data_file, data_file_index * sizeof(file_data_t), SEEK_SET);
+    
+    sys::data_t data = {};
+    file_data_t file_data = {};
+
+    while (1) {
+
+        if (xQueueReceive(final_data_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS * 10)) != pdTRUE) {
+            LOGW("Failed to receive data from final_data_queue. Skipping current iteration of logging");
+            continue;
+        }
+
+        file_data.voltage = data.battery_voltage;
+        file_data.current = data.load_current_drawn;
+        file_data.temperature = data.inv_temp;
+        file_data.humidity = data.inv_hmdt;
+
+        // Write the received data immediately
+        fwrite(&file_data, sizeof(file_data_t), 1, f_data_file);
+
+        data_file_index += 1;
+        // Wrap around to the beginning of the file if data_file_index gets to MAX_SAMPLES_TO_LOG
+        if (data_file_index >= MAX_SAMPLES_TO_LOG) {
+            data_file_index = 0;
+            // Move f_data_file to the beginning of the file so we can overwrite the oldest data
+            // since we have gotten to MAX_SAMPLES_TO_LOG 
+            rewind(f_data_file);
+        }
+
+        // Set f_meta_data_file back to the beginning of the file before writing to the file
+        // to overwrite the old data index currently present because we don't need it
+        rewind(f_meta_data_file);
+        fwrite(&data_file_index, sizeof(data_file_index), 1, f_meta_data_file);
+
+        // Force buffered data to flash immediately
+        fflush(f_data_file);
+        fflush(f_meta_data_file);
+
+        vTaskDelay(pdMS_TO_TICKS(LOG_TASK_PERIOD_MS));
     } 
 }
 
@@ -399,66 +505,73 @@ extern "C" {
         queue_create();
 
         lvgl_display_mutex = xSemaphoreCreateMutexStatic(&lvgl_display_mutex_buffer);
+        ASSERT(lvgl_display_mutex, "lvgl_display_mutex cannot be null");
 
         // Create tasks
-        calc_runtime_task_handle = xTaskCreateStaticPinnedToCore(
-                                                                 runtime_calc_task, 
-                                                                 "RuntimeCalcsTask", 
-                                                                 CALC_TASK_STACK_SIZE, 
-                                                                 nullptr, 
-                                                                 CALC_TASK_PRIORITY,
-                                                                 calc_task_stack,
-                                                                 &calc_task_buffer, 
-                                                                 CALC_TASK_CORE
+        lvgl_task_handle = xTaskCreateStatic(
+                                             lvgl_handler_task, 
+                                             "LVGLHandlerTask", 
+                                             LVGL_TASK_STACK_SIZE, 
+                                             nullptr, 
+                                             LVGL_TASK_PRIORITY, 
+                                             lvgl_task_stack,
+                                             &lvgl_task_buffer
+        );
+        ASSERT(lvgl_task_handle, "lvgl_task_handle cannot be null");
+        
+        log_task_handle = xTaskCreateStatic(
+                                            log_task, 
+                                            "LogTask", 
+                                            LOG_TASK_STACK_SIZE, 
+                                            nullptr, 
+                                            LOG_TASK_PRIORITY,
+                                            log_task_stack,
+                                            &log_task_buffer
+        );
+        ASSERT(log_task_handle, "log_task_handle cannot be null");
+
+        calc_runtime_task_handle = xTaskCreateStatic(
+                                                     runtime_calc_task, 
+                                                     "RuntimeCalcsTask", 
+                                                     CALC_TASK_STACK_SIZE, 
+                                                     nullptr, 
+                                                     CALC_TASK_PRIORITY,
+                                                     calc_task_stack,
+                                                     &calc_task_buffer
         );
         ASSERT(calc_runtime_task_handle, "calc_runtime_task_handle cannot be null");
 
-        aht_task_handle = xTaskCreateStaticPinnedToCore(
-                                                        aht_task,
-                                                        "AHTTask",
-                                                        AHT_TASK_STACK_SIZE,
-                                                        nullptr,
-                                                        AHT_TASK_PRIORITY,
-                                                        aht_task_stack,
-                                                        &aht_task_buffer,
-                                                        AHT_TASK_CORE
+        aht_task_handle = xTaskCreateStatic(
+                                            aht_task,
+                                            "AHTTask",
+                                            AHT_TASK_STACK_SIZE,
+                                            nullptr,
+                                            AHT_TASK_PRIORITY,
+                                            aht_task_stack,
+                                            &aht_task_buffer
         );
         ASSERT(aht_task_handle, "aht_task_handle cannot be null");
 
-        adc_task_handle = xTaskCreateStaticPinnedToCore(
-                                                        adc_task,
-                                                        "ADCTask",
-                                                        ADC_TASK_STACK_SIZE,
-                                                        nullptr,
-                                                        ADC_TASK_PRIORITY,
-                                                        adc_task_stack,
-                                                        &adc_task_buffer,
-                                                        ADC_TASK_CORE
+        adc_task_handle = xTaskCreateStatic(
+                                            adc_task,
+                                            "ADCTask",
+                                            ADC_TASK_STACK_SIZE,
+                                            nullptr,
+                                            ADC_TASK_PRIORITY,
+                                            adc_task_stack,
+                                            &adc_task_buffer
         );
         ASSERT(adc_task_handle, "adc_task_handle cannot be null");
 
-        display_task_handle = xTaskCreateStaticPinnedToCore(
-                                                            display_task,
-                                                            "DisplayTask",
-                                                            DISPLAY_TASK_STACK_SIZE,
-                                                            nullptr,
-                                                            DISPLAY_TASK_PRIORITY,
-                                                            display_task_stack,
-                                                            &display_task_buffer,
-                                                            DISPLAY_TASK_CORE
+        display_task_handle = xTaskCreateStatic(
+                                                display_task,
+                                                "DisplayTask",
+                                                DISPLAY_TASK_STACK_SIZE,
+                                                nullptr,
+                                                DISPLAY_TASK_PRIORITY,
+                                                display_task_stack,
+                                                &display_task_buffer
         );
         ASSERT(display_task_handle, "display_task_handle cannot be null");
-
-        lvgl_task_handle = xTaskCreateStaticPinnedToCore(
-                                                         lvgl_handler_task, 
-                                                         "LVGLHandlerTask", 
-                                                         LVGL_TASK_STACK_SIZE, 
-                                                         nullptr, 
-                                                         LVGL_TASK_PRIORITY, 
-                                                         lvgl_task_stack,
-                                                         &lvgl_task_buffer, 
-                                                         LVGL_TASK_CORE
-        );
-        ASSERT(lvgl_task_handle, "lvgl_task_handle cannot be null");
     }
 } // extern "C"

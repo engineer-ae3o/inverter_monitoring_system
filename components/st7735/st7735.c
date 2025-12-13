@@ -42,7 +42,7 @@ static const uint8_t ST7735_COLMOD                           = 0x3A;
 #define ST7735_TIMEOUT_MS                                    50U
 #define ST7735_DEFAULT_MAX_RETRIES                           3U
 #define ST7735_DEFAULT_QUEUE_SIZE                            10U
-#define ST7735_DEFAULT_TASK_PRIORITY                         6U
+#define ST7735_DEFAULT_TASK_PRIORITY                         8U
 #define ST7735_DEFAULT_TASK_CORE                             1U
 #define ST7735_DEFAULT_TASK_STACK_SIZE                       4096U
 

@@ -146,7 +146,7 @@ namespace adc {
 
         // Processing task
         static void processing_task(void* arg);
-        static constexpr uint8_t PROC_TASK_PRIORITY = 6;
+        static constexpr uint8_t PROC_TASK_PRIORITY = 8;
         static constexpr uint8_t PROC_TASK_CORE = 0;
         static constexpr uint16_t PROC_TASK_STACK_SIZE = 4096;
         TaskHandle_t processing_task_handle;
