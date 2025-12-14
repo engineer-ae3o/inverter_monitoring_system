@@ -7,25 +7,32 @@
 
 namespace config {
     // Tasks specifications
-    constexpr inline uint16_t CALC_TASK_STACK_SIZE                   = 5096;
+    constexpr inline uint16_t CALC_TASK_STACK_SIZE                   = 4096;
     constexpr inline uint16_t CALC_TASK_PRIORITY                     = 5;
+    // We make CALC_TASK_PERIOD_MS the same as ADC_READ_PERIOD_MS because
+    // it's the minimum period before new data will be available for runtime_calc_task.
+    // I use the direct value of ADC_READ_PERIOD_MS because g++ is a whining bitch
+    // The error message i got when i used ADC_READ_PERIOD_MS was <"ADC_READ_PERIOD_MS" is ambiguous>
+    // whatever the fuck that means. So if you change the value of ADC_READ_PERIOD_MS,
+    // remember to change it here
+    constexpr inline uint16_t CALC_TASK_PERIOD_MS                    = 50;
     
-    constexpr inline uint16_t DISPLAY_TASK_STACK_SIZE                = 9192;
+    constexpr inline uint16_t DISPLAY_TASK_STACK_SIZE                = 8192;
     constexpr inline uint16_t DISPLAY_TASK_PRIORITY                  = 4;
     
-    constexpr inline uint16_t AHT_TASK_STACK_SIZE                    = 4072;
+    constexpr inline uint16_t AHT_TASK_STACK_SIZE                    = 3072;
     constexpr inline uint16_t AHT_TASK_PRIORITY                      = 6;
     constexpr inline uint16_t AHT_READ_PERIOD_MS                     = 2100;
     
-    constexpr inline uint16_t ADC_TASK_STACK_SIZE                    = 4072;
+    constexpr inline uint16_t ADC_TASK_STACK_SIZE                    = 3072;
     constexpr inline uint16_t ADC_TASK_PRIORITY                      = 7;
-    constexpr inline uint16_t ADC_READ_PERIOD_MS                     = 20;
+    constexpr inline uint16_t ADC_READ_PERIOD_MS                     = 50;
     
-    constexpr inline uint16_t LVGL_TASK_STACK_SIZE                   = 9192;
+    constexpr inline uint16_t LVGL_TASK_STACK_SIZE                   = 8192;
     constexpr inline uint16_t LVGL_TASK_PRIORITY                     = 3;
     constexpr inline uint16_t LVGL_TASK_PERIOD_MS                    = 33;
 
-    constexpr inline uint16_t LOG_TASK_STACK_SIZE                    = 4072;
+    constexpr inline uint16_t LOG_TASK_STACK_SIZE                    = 4096;
     constexpr inline uint16_t LOG_TASK_PRIORITY                      = 2;
     constexpr inline uint16_t LOG_TASK_PERIOD_MS                     = 30 * 1000; // 30s
     

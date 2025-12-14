@@ -51,8 +51,14 @@ static const char* TAG = "MAIN";
     } while (0)
 
 
-using namespace config;
+#define ADC_TASK_PROFILING                                  0
+#define AHT_TASK_PROFILING                                  0
+#define LOG_TASK_PROFILING                                  0
+#define CALC_TASK_PROFILING                                 0
+#define DISPLAY_TASK_PROFILING                              0
+#define LVGL_TASK_PROFILING                                 0
 
+using namespace config;
 
 // Calc_runtime task parameters
 static TaskHandle_t calc_runtime_task_handle = nullptr;
@@ -226,28 +232,27 @@ void lvgl_handler_task(void* arg) {
 
     TWDT_ADD_TASK(lvgl_handler_task);
 
+#if LVGL_TASK_PROFILING == 1
     int64_t end[100] = {};
     size_t i = 0;
+#endif
 
     while (1) {
 
+#if LVGL_TASK_PROFILING == 1
         int64_t start = esp_timer_get_time();
+#endif
 
         TWDT_RESET_FROM_TASK(lvgl_handler_task);
 
-        end[i] = esp_timer_get_time() - start;
-        LOGI("Time for task watchdog timer reset: %lldus", end[i]);
-
         if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(LVGL_TASK_PERIOD_MS)) == pdTRUE) {
-            int64_t s = esp_timer_get_time();
             lv_timer_handler();
-            end[i] = esp_timer_get_time() - s;
             xSemaphoreGive(lvgl_display_mutex);
         } else {
             LOGW("Failed to take mutex. Skipping frames");
         }
 
-        LOGI("Time for lv_timer_handler to run: %.3fms", static_cast<float>(end[i]) / 1000);
+#if LVGL_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
         LOGI("Time for lvgl_handler_task: %.3fms", static_cast<float>(end[i]) / 1000);
 
@@ -261,6 +266,7 @@ void lvgl_handler_task(void* arg) {
             LOGI("Average execution time for lvgl_handler_task: %.3fms", average / 1000);
             i = 0;
         }
+#endif
 
         vTaskDelay(pdMS_TO_TICKS(LVGL_TASK_PERIOD_MS));
     }
@@ -276,12 +282,16 @@ void aht_task(void* arg) {
     aht20_data_t data = {};
     aht20_err_t ret = AHT_OK;
 
+#if AHT_TASK_PROFILING == 1
     int64_t end[100] = {};
     size_t i = 0;
+#endif
 
     while (1) {
 
+#if AHT_TASK_PROFILING == 1
         int64_t start = esp_timer_get_time();
+#endif
 
         TWDT_RESET_FROM_TASK(aht_task);
 
@@ -291,14 +301,15 @@ void aht_task(void* arg) {
             continue;
         }
 
-        if (xQueueSend(aht_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
+        if (xQueueSend(aht_queue, &data, 0) != pdTRUE) {
             // Removing oldest data
             aht20_data_t dummy = {};
-            xQueueReceive(aht_queue, &dummy, pdMS_TO_TICKS(TIMEOUT_MS));
+            xQueueReceive(aht_queue, &dummy, 0);
             // Sending latest data again
-            xQueueSend(aht_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS));
+            xQueueSend(aht_queue, &data, 0);
         }
 
+#if AHT_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
         LOGI("Time for aht_task: %.3fms", static_cast<float>(end[i]) / 1000);
 
@@ -312,6 +323,7 @@ void aht_task(void* arg) {
             LOGI("Average execution time for aht_task: %.3fms", average / 1000);
             i = 0;
         }
+#endif
 
         vTaskDelay(pdMS_TO_TICKS(AHT_READ_PERIOD_MS));
     } 
@@ -358,12 +370,16 @@ void log_task(void* arg) {
     sys::data_t data = {};
     file_data_t file_data = {};
 
+#if LOG_TASK_PROFILING == 1
     int64_t end[100] = {};
     size_t i = 0;
+#endif
 
     while (1) {
 
+#if LOG_TASK_PROFILING == 1
         int64_t start = esp_timer_get_time();
+#endif
 
         if (xQueueReceive(final_data_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS * 10)) != pdTRUE) {
             LOGW("Failed to receive data from final_data_queue. Skipping current iteration of logging");
@@ -397,6 +413,7 @@ void log_task(void* arg) {
         fflush(f_data_file);
         fflush(f_meta_data_file);
 
+#if LOG_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
         LOGI("Time for log_task: %.3fms", static_cast<float>(end[i]) / 1000);
 
@@ -410,7 +427,8 @@ void log_task(void* arg) {
             LOGI("Average execution time for log_task: %.3fms", average / 1000);
             i = 0;
         }
-
+#endif
+    
         vTaskDelay(pdMS_TO_TICKS(LOG_TASK_PERIOD_MS));
     } 
 }
@@ -425,12 +443,16 @@ void adc_task(void* arg) {
     adc::data_t data = {};
     bool ret = false;
 
+#if ADC_TASK_PROFILING == 1
     int64_t end[100] = {};
     size_t i = 0;
+#endif
 
     while (1) {
 
+#if ADC_TASK_PROFILING == 1
         int64_t start = esp_timer_get_time();
+#endif
 
         TWDT_RESET_FROM_TASK(adc_task);
 
@@ -440,16 +462,17 @@ void adc_task(void* arg) {
             continue;
         }
 
-        if (xQueueSend(power_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
+        if (xQueueSend(power_queue, &data, 0) != pdTRUE) {
             // Removing oldest data
             adc::data_t dummy = {};
-            xQueueReceive(power_queue, &dummy, pdMS_TO_TICKS(TIMEOUT_MS));
+            xQueueReceive(power_queue, &dummy, 0);
             // Sending latest data again
-            xQueueSend(power_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS));
+            xQueueSend(power_queue, &data, 0);
         }
 
+#if ADC_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
-        LOGI("Time for adc_task: %.3fms", static_cast<float>(end[i]) / 1000);
+        LOGI("Time for adc_task: %.3fus", static_cast<float>(end[i]));
 
         i++;
         if (i >= 100) {
@@ -458,17 +481,18 @@ void adc_task(void* arg) {
                 average += end[j];
             }
             average /= 100;
-            LOGI("Average execution time for adc_task: %.3fms", average / 1000);
+            LOGI("Average execution time for adc_task: %.3fus", average);
             i = 0;
         }
+#endif
 
         vTaskDelay(pdMS_TO_TICKS(ADC_READ_PERIOD_MS));
     }
 }
 
-// Task to calculate runtime parameters and send to final_data_queue
+// Task to calculate runtime parameters
 void runtime_calc_task(void* arg) {
-
+     
     LOGI("Starting runtime_calc_task");
 
     TWDT_ADD_TASK(runtime_calc_task);
@@ -477,22 +501,26 @@ void runtime_calc_task(void* arg) {
     adc::data_t power_data = {};
     sys::data_t final_data = {};
 
+#if CALC_TASK_PROFILING == 1
     int64_t end[100] = {};
     size_t i = 0;
+#endif
 
     while (1) {
 
+#if CALC_TASK_PROFILING == 1
         int64_t start = esp_timer_get_time();
+#endif
 
         TWDT_RESET_FROM_TASK(runtime_calc_task);
 
-        if (xQueueReceive(aht_queue, &aht_data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
+        if (xQueueReceive(aht_queue, &aht_data, 0) != pdTRUE) {
             // This is commented out because the AHT20 can only be read from at certain intevals, so we
             // will get a lot of stale reads, so logging each one would flood the logs
             // LOGW("Data not received from aht data queue. Using stale data");
         }
 
-        if (xQueueReceive(power_queue, &power_data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
+        if (xQueueReceive(power_queue, &power_data, 0) != pdTRUE) {
             LOGW("Data not received from power data queue. Using stale data");
         }
 
@@ -502,18 +530,19 @@ void runtime_calc_task(void* arg) {
             continue;
         }
 
-        if (xQueueSend(final_data_queue, &final_data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
+        if (xQueueSend(final_data_queue, &final_data, 0) != pdTRUE) {
             // Removing oldest data
             sys::data_t dummy = {};
-            xQueueReceive(final_data_queue, &dummy, pdMS_TO_TICKS(TIMEOUT_MS));
+            xQueueReceive(final_data_queue, &dummy, 0);
             // Sending latest data again
-            xQueueSend(final_data_queue, &final_data, pdMS_TO_TICKS(TIMEOUT_MS));
+            xQueueSend(final_data_queue, &final_data, 0);
         }
 
         xTaskNotifyGive(display_task_handle);
 
+#if CALC_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
-        LOGI("Time for runtime_calc_task: %.3fms", static_cast<float>(end[i]) / 1000);
+        LOGI("Time for runtime_calc_task: %.3fus", static_cast<float>(end[i]));
 
         i++;
         if (i >= 100) {
@@ -522,9 +551,12 @@ void runtime_calc_task(void* arg) {
                 average += end[j];
             }
             average /= 100;
-            LOGI("Average execution time for runtime_calc_task: %.3fms", average / 1000);
+            LOGI("Average execution time for runtime_calc_task: %.3fus", average);
             i = 0;
         }
+#endif
+
+        vTaskDelay(pdMS_TO_TICKS(CALC_TASK_PERIOD_MS));
     }
 }
 
@@ -548,12 +580,16 @@ void display_task(void* arg) {
     button::event_t event = button::event_t::NO_EVENT;
     sys::data_t data = {};
 
+#if DISPLAY_TASK_PROFILING == 1
     int64_t end[100] = {};
     size_t i = 0;
+#endif
 
     while (1) {
 
+#if DISPLAY_TASK_PROFILING == 1
         int64_t start = esp_timer_get_time();
+#endif
 
         TWDT_RESET_FROM_TASK(display_task);
         
@@ -599,9 +635,10 @@ void display_task(void* arg) {
 
         xSemaphoreGive(lvgl_display_mutex);
 
+#if DISPLAY_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
         LOGI("Time for display_task: %.3fms", static_cast<float>(end[i]) / 1000);
-
+        
         i++;
         if (i >= 100) {
             double average = 0;
@@ -612,6 +649,7 @@ void display_task(void* arg) {
             LOGI("Average execution time for display_task: %.3fms", average / 1000);
             i = 0;
         }
+#endif
     }
 }
 
