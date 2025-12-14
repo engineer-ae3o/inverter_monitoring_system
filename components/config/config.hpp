@@ -7,25 +7,25 @@
 
 namespace config {
     // Tasks specifications
-    constexpr inline uint16_t CALC_TASK_STACK_SIZE                   = 4096;
+    constexpr inline uint16_t CALC_TASK_STACK_SIZE                   = 5096;
     constexpr inline uint16_t CALC_TASK_PRIORITY                     = 5;
     
-    constexpr inline uint16_t DISPLAY_TASK_STACK_SIZE                = 8192;
+    constexpr inline uint16_t DISPLAY_TASK_STACK_SIZE                = 9192;
     constexpr inline uint16_t DISPLAY_TASK_PRIORITY                  = 4;
     
-    constexpr inline uint16_t AHT_TASK_STACK_SIZE                    = 3072;
+    constexpr inline uint16_t AHT_TASK_STACK_SIZE                    = 4072;
     constexpr inline uint16_t AHT_TASK_PRIORITY                      = 6;
-    constexpr inline uint16_t AHT_READ_PERIOD_MS                     = 1600;
+    constexpr inline uint16_t AHT_READ_PERIOD_MS                     = 2100;
     
-    constexpr inline uint16_t ADC_TASK_STACK_SIZE                    = 3072;
+    constexpr inline uint16_t ADC_TASK_STACK_SIZE                    = 4072;
     constexpr inline uint16_t ADC_TASK_PRIORITY                      = 7;
     constexpr inline uint16_t ADC_READ_PERIOD_MS                     = 20;
     
-    constexpr inline uint16_t LVGL_TASK_STACK_SIZE                   = 8192;
+    constexpr inline uint16_t LVGL_TASK_STACK_SIZE                   = 9192;
     constexpr inline uint16_t LVGL_TASK_PRIORITY                     = 3;
     constexpr inline uint16_t LVGL_TASK_PERIOD_MS                    = 33;
 
-    constexpr inline uint16_t LOG_TASK_STACK_SIZE                    = 3072;
+    constexpr inline uint16_t LOG_TASK_STACK_SIZE                    = 4072;
     constexpr inline uint16_t LOG_TASK_PRIORITY                      = 2;
     constexpr inline uint16_t LOG_TASK_PERIOD_MS                     = 30 * 1000; // 30s
     

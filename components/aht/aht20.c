@@ -36,15 +36,15 @@ static const uint8_t AHT20_INIT_CMD_2                   = 0x08;        ///< Firs
 static const uint8_t AHT20_INIT_CMD_3                   = 0x00;        ///< Second parameter for initialization
 
 // Timing constants
-static const uint32_t AHT20_MEASUREMENT_DELAY_MS        = 80;          ///< Measurement time of the AHT20
-static const uint32_t AHT20_I2C_TIMEOUT_MS              = 200;         ///< Timeout for sending and receiving data on the I2C bus
-static const uint32_t AHT20_READ_ATTEMPTS               = 4;           ///< Maximum number of times a read is attempted before returning an error
-static const uint32_t AHT20_DELAY_TO_SETUP_MS           = 15;          ///< Delay for the AHT20 to setup before any reading can take place
-static const uint32_t AHT20_DELAY_TO_DEFAULT_MS         = 40;          ///< Delay for the AHT20 to enter it's default state after powering up
-static const uint32_t AHT20_BACKOFF_DELAY_MS            = 100;         ///< Backoff between retry attempts
-static const uint32_t AHT20_MINIMUM_READ_TIME_US        = 1500000;     ///< Minimum time between read attempts
+static const uint8_t AHT20_MEASUREMENT_DELAY_MS         = 80;          ///< Measurement time of the AHT20
+static const uint8_t AHT20_I2C_TIMEOUT_MS               = 200;         ///< Timeout for sending and receiving data on the I2C bus
+static const uint8_t AHT20_READ_ATTEMPTS                = 4;           ///< Maximum number of times a read is attempted before returning an error
+static const uint8_t AHT20_DELAY_TO_SETUP_MS            = 15;          ///< Delay for the AHT20 to setup before any reading can take place
+static const uint8_t AHT20_DELAY_TO_DEFAULT_MS          = 40;          ///< Delay for the AHT20 to enter it's default state after powering up
+static const uint8_t AHT20_BACKOFF_DELAY_MS             = 100;         ///< Backoff between retry attempts
+static const uint8_t MAX_POLL_ATTEMPTS                  = 50;          ///< Max number of polling attempts before timing out
+static const uint32_t AHT20_MINIMUM_READ_TIME_US        = 2000000;     ///< Minimum time between read attempts (2s)
 static const uint32_t AHT20_CONVERSION_FACTOR           = 1048576;     ///< Conversion factor for the AHT20 (2^20)
-static const uint32_t MAX_POLL_ATTEMPTS                 = 50;          ///< Max number of polling attempts before timing out
 
 // I2C configuration
 static const uint16_t I2C_MASTER_FREQ_HZ                = 20000;       ///< I2C bus frequency
@@ -122,7 +122,7 @@ static aht20_err_t poll_till_measurement_done(void) {
         AHT_LOGW("AHT20 not done taking measurements");
         vTaskDelay(pdMS_TO_TICKS(2));  // Small delay before trying again
     }
-    return AHT_TIMEOUT;  // If we reach here, it means all polling attempts failed; so we return a timeout
+    return AHT_TIMEOUT;  // If we reach here, it means all polling attempts failed; so we return with a timeout
 }
 
 static aht20_err_t checksum_valid(uint8_t* data) {
@@ -132,6 +132,7 @@ static aht20_err_t checksum_valid(uint8_t* data) {
         return AHT_INVALID_ARGS;
     }
 
+    // Here, we perform the CRC8 checksum algorithm
     uint8_t checksum = 0xFF;
     for (int i = 0; i < 6; i++) {
         checksum ^= data[i];
@@ -376,7 +377,7 @@ aht20_err_t aht20_read(aht20_data_t* data) {
         }
 
         if (checksum_valid(rx_data_buffer) != AHT_OK) {
-            AHT_LOGW("AHT sensor data as invalidated via the checksum");
+            AHT_LOGW("AHT sensor data invalid as invalidated via the checksum");
             vTaskDelay(pdMS_TO_TICKS(AHT20_BACKOFF_DELAY_MS));
             continue;
         }

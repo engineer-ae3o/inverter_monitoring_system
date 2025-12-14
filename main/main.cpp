@@ -111,7 +111,6 @@ struct file_data_t {
     float temperature;
     float humidity;
 };
-constexpr static size_t MAX_FILE_SIZE_BYTES = sizeof(file_data_t) * MAX_SAMPLES_TO_LOG;
 
 static esp_timer_handle_t display_led_timer_handle = nullptr;
 
@@ -140,6 +139,7 @@ static void init_all(void) {
         LOGE("Failed to initialize button handler: %s", esp_err_to_name(result));
         sys::handle_error();
     }
+    ASSERT(display_led_timer_handle, "display_led_timer_handle cannot be null");
 
     // LCD Initialization
     const st7735_config_t config = {
@@ -171,15 +171,17 @@ static void init_all(void) {
         sys::handle_error();
     }
 
+    // Display interface initialization
     result = display::init();
     if (result != ESP_OK) {
         LOGE("Failed to initialize LVGL and the display interface: %s", esp_err_to_name(result));
         sys::handle_error();
     }
 
+    // LittleFS and partition initialization
     const esp_vfs_littlefs_conf_t littlefs_config = {
         .base_path = "/storage",
-        .partition_label = "littlefs",
+        .partition_label = nullptr,
         .partition = nullptr,
         .format_if_mount_failed = 1,
         .read_only = 0,
@@ -224,15 +226,40 @@ void lvgl_handler_task(void* arg) {
 
     TWDT_ADD_TASK(lvgl_handler_task);
 
+    int64_t end[1000] = {};
+    size_t i = 0;
+
     while (1) {
+
+        int64_t start = esp_timer_get_time();
 
         TWDT_RESET_FROM_TASK(lvgl_handler_task);
 
+        end[i] = esp_timer_get_time() - start;
+        LOGI("Time for task watchdog timer reset: %lldus", end[i]);
+
         if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(LVGL_TASK_PERIOD_MS)) == pdTRUE) {
+            int64_t s = esp_timer_get_time();
             lv_timer_handler();
+            end[i] = esp_timer_get_time() - s;
             xSemaphoreGive(lvgl_display_mutex);
         } else {
             LOGW("Failed to take mutex. Skipping frames");
+        }
+
+        LOGI("Time for lv_timer_handler to run: %.3fms", static_cast<float>(end[i]) / 1000);
+        end[i] = esp_timer_get_time() - start;
+        LOGI("Time for lvgl_handler_task: %.3fms", static_cast<float>(end[i]) / 1000);
+
+        i++;
+        if (i >= 1000) {
+            double average = 0;
+            for (size_t j = 0; j < 1000; j++) {
+                average += end[i];
+                i = 0;
+            }
+            average /= 1000;
+            LOGI("Average execution time for lvgl_handler_task: %.3fms", average / 1000);
         }
 
         vTaskDelay(pdMS_TO_TICKS(LVGL_TASK_PERIOD_MS));
@@ -249,7 +276,12 @@ void aht_task(void* arg) {
     aht20_data_t data = {};
     aht20_err_t ret = AHT_OK;
 
+    int64_t end[1000] = {};
+    size_t i = 0;
+
     while (1) {
+
+        int64_t start = esp_timer_get_time();
 
         TWDT_RESET_FROM_TASK(aht_task);
 
@@ -265,6 +297,20 @@ void aht_task(void* arg) {
             xQueueReceive(aht_queue, &dummy, pdMS_TO_TICKS(TIMEOUT_MS));
             // Sending latest data again
             xQueueSend(aht_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS));
+        }
+
+        end[i] = esp_timer_get_time() - start;
+        LOGI("Time for aht_task: %.3fms", static_cast<float>(end[i]) / 1000);
+
+        i++;
+        if (i >= 1000) {
+            double average = 0;
+            for (size_t j = 0; j < 1000; j++) {
+                average += end[j];
+            }
+            average /= 1000;
+            LOGI("Average execution time for aht_task: %.3fms", average / 1000);
+            i = 0;
         }
 
         vTaskDelay(pdMS_TO_TICKS(AHT_READ_PERIOD_MS));
@@ -306,16 +352,22 @@ void log_task(void* arg) {
         }
     }
 
-    // Position f_data_file at the next write location (resume from where we left off at the last boot)
+    // Position f_data_file at the next write location (resume from where we left off on last boot)
     fseek(f_data_file, data_file_index * sizeof(file_data_t), SEEK_SET);
     
     sys::data_t data = {};
     file_data_t file_data = {};
 
+    int64_t end[1000] = {};
+    size_t i = 0;
+
     while (1) {
+
+        int64_t start = esp_timer_get_time();
 
         if (xQueueReceive(final_data_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS * 10)) != pdTRUE) {
             LOGW("Failed to receive data from final_data_queue. Skipping current iteration of logging");
+            vTaskDelay(pdMS_TO_TICKS(LOG_TASK_PERIOD_MS));
             continue;
         }
 
@@ -345,6 +397,20 @@ void log_task(void* arg) {
         fflush(f_data_file);
         fflush(f_meta_data_file);
 
+        end[i] = esp_timer_get_time() - start;
+        LOGI("Time for log_task: %.3fms", static_cast<float>(end[i]) / 1000);
+
+        i++;
+        if (i >= 1000) {
+            double average = 0;
+            for (size_t j = 0; j < 1000; j++) {
+                average += end[j];
+            }
+            average /= 1000;
+            LOGI("Average execution time for log_task: %.3fms", average / 1000);
+            i = 0;
+        }
+
         vTaskDelay(pdMS_TO_TICKS(LOG_TASK_PERIOD_MS));
     } 
 }
@@ -359,7 +425,12 @@ void adc_task(void* arg) {
     adc::data_t data = {};
     bool ret = false;
 
+    int64_t end[1000] = {};
+    size_t i = 0;
+
     while (1) {
+
+        int64_t start = esp_timer_get_time();
 
         TWDT_RESET_FROM_TASK(adc_task);
 
@@ -377,6 +448,20 @@ void adc_task(void* arg) {
             xQueueSend(power_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS));
         }
 
+        end[i] = esp_timer_get_time() - start;
+        LOGI("Time for adc_task: %.3fms", static_cast<float>(end[i]) / 1000);
+
+        i++;
+        if (i >= 1000) {
+            double average = 0;
+            for (size_t j = 0; j < 1000; j++) {
+                average += end[j];
+            }
+            average /= 1000;
+            LOGI("Average execution time for adc_task: %.3fms", average / 1000);
+            i = 0;
+        }
+
         vTaskDelay(pdMS_TO_TICKS(ADC_READ_PERIOD_MS));
     }
 }
@@ -392,7 +477,12 @@ void runtime_calc_task(void* arg) {
     adc::data_t power_data = {};
     sys::data_t final_data = {};
 
+    int64_t end[1000] = {};
+    size_t i = 0;
+
     while (1) {
+
+        int64_t start = esp_timer_get_time();
 
         TWDT_RESET_FROM_TASK(runtime_calc_task);
 
@@ -421,6 +511,20 @@ void runtime_calc_task(void* arg) {
         }
 
         xTaskNotifyGive(display_task_handle);
+
+        end[i] = esp_timer_get_time() - start;
+        LOGI("Time for runtime_calc_task: %.3fms", static_cast<float>(end[i]) / 1000);
+
+        i++;
+        if (i >= 1000) {
+            double average = 0;
+            for (size_t j = 0; j < 1000; j++) {
+                average += end[j];
+            }
+            average /= 1000;
+            LOGI("Average execution time for runtime_calc_task: %.3fms", average / 1000);
+            i = 0;
+        }
     }
 }
 
@@ -436,7 +540,6 @@ void display_task(void* arg) {
     vTaskDelay(pdMS_TO_TICKS(200));
     display::create_ui();
 
-    ASSERT(display_led_timer_handle, "display_led_timer_handle cannot be null");
     esp_timer_start_once(display_led_timer_handle, TIME_TO_LED_50_PERCENT_BRIGHTNESS_US);
 
     QueueHandle_t btn_queue = button::get_queue();
@@ -445,7 +548,12 @@ void display_task(void* arg) {
     button::event_t event = button::event_t::NO_EVENT;
     sys::data_t data = {};
 
+    int64_t end[1000] = {};
+    size_t i = 0;
+
     while (1) {
+
+        int64_t start = esp_timer_get_time();
 
         TWDT_RESET_FROM_TASK(display_task);
         
@@ -490,6 +598,20 @@ void display_task(void* arg) {
         display::update_screen_data(data);
 
         xSemaphoreGive(lvgl_display_mutex);
+
+        end[i] = esp_timer_get_time() - start;
+        LOGI("Time for display_task: %.3fms", static_cast<float>(end[i]) / 1000);
+
+        i++;
+        if (i >= 1000) {
+            double average = 0;
+            for (size_t j = 0; j < 1000; j++) {
+                average += end[j];
+            }
+            average /= 1000;
+            LOGI("Average execution time for display_task: %.3fms", average / 1000);
+            i = 0;
+        }
     }
 }
 
@@ -574,4 +696,5 @@ extern "C" {
         );
         ASSERT(display_task_handle, "display_task_handle cannot be null");
     }
+
 } // extern "C"
