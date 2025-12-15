@@ -20,11 +20,11 @@ namespace config {
     constexpr inline uint16_t DISPLAY_TASK_STACK_SIZE                = 8192;
     constexpr inline uint16_t DISPLAY_TASK_PRIORITY                  = 4;
     
-    constexpr inline uint16_t AHT_TASK_STACK_SIZE                    = 3072;
+    constexpr inline uint16_t AHT_TASK_STACK_SIZE                    = 4096;
     constexpr inline uint16_t AHT_TASK_PRIORITY                      = 6;
     constexpr inline uint16_t AHT_READ_PERIOD_MS                     = 2100;
     
-    constexpr inline uint16_t ADC_TASK_STACK_SIZE                    = 3072;
+    constexpr inline uint16_t ADC_TASK_STACK_SIZE                    = 4096;
     constexpr inline uint16_t ADC_TASK_PRIORITY                      = 7;
     constexpr inline uint16_t ADC_READ_PERIOD_MS                     = 50;
     

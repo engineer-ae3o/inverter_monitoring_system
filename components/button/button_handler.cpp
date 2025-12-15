@@ -13,7 +13,7 @@
 #include <cstdint>
 
 
-#define BTN_DEBUG 1
+#define BTN_DEBUG 0
 
 #if BTN_DEBUG == 1
 static const char* TAG = "BUTTON_HANDLER";

@@ -607,10 +607,10 @@ void display_task(void* arg) {
                 display::prev_screen();
             } else if (event == button::event_t::NEXT_LONG_PRESSED) {
                 // TODO: Implement actual historical graph screen for voltage and current
-                LOGI("NEXT button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 100000));
+                LOGI("NEXT button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1000000));
             } else if (event == button::event_t::PREV_LONG_PRESSED) {
                 // TODO: Implement actual historical graph screen for temperature and humidity
-                LOGI("PREV button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 100000));
+                LOGI("PREV button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1000000));
             }
         }
 
@@ -690,17 +690,6 @@ extern "C" {
         );
         ASSERT(log_task_handle, "log_task_handle cannot be null");
 
-        calc_runtime_task_handle = xTaskCreateStatic(
-                                                     runtime_calc_task, 
-                                                     "RuntimeCalcsTask", 
-                                                     CALC_TASK_STACK_SIZE, 
-                                                     nullptr, 
-                                                     CALC_TASK_PRIORITY,
-                                                     calc_task_stack,
-                                                     &calc_task_buffer
-        );
-        ASSERT(calc_runtime_task_handle, "calc_runtime_task_handle cannot be null");
-
         aht_task_handle = xTaskCreateStatic(
                                             aht_task,
                                             "AHTTask",
@@ -733,6 +722,17 @@ extern "C" {
                                                 &display_task_buffer
         );
         ASSERT(display_task_handle, "display_task_handle cannot be null");
+
+        calc_runtime_task_handle = xTaskCreateStatic(
+                                                     runtime_calc_task, 
+                                                     "RuntimeCalcsTask", 
+                                                     CALC_TASK_STACK_SIZE, 
+                                                     nullptr, 
+                                                     CALC_TASK_PRIORITY,
+                                                     calc_task_stack,
+                                                     &calc_task_buffer
+        );
+        ASSERT(calc_runtime_task_handle, "calc_runtime_task_handle cannot be null");
     }
 
 } // extern "C"
