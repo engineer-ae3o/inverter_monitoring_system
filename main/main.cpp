@@ -4,6 +4,7 @@
 #include "freertos/queue.h"
 
 #include "power_monitor.hpp"
+#include "ble.hpp"
 #include "config.hpp"
 #include "system.hpp"
 #include "display.hpp"
