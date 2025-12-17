@@ -2,14 +2,26 @@
 #define _BLE_HPP_
 
 
-#include "freertos/FreeRTOS.h"
+#include "esp_err.h"
 
 
 namespace ble {
 
-    void init(void);
+    /**
+     * @brief Initializes the ble interface
+     * 
+     * @return ESP_OK on success, error code otherwise
+     * 
+     * @note This also initializes nvs flash
+     */
+    esp_err_t init(void);
     
-    void deinit(void);
+    /**
+     * @brief Deinitializes the ble interface
+     * 
+     * @return ESP_OK on success, error code otherwise
+     */
+    esp_err_t deinit(void);
 
 } // namespace ble
 
