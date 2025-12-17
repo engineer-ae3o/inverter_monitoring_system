@@ -36,14 +36,30 @@ static const char* TAG = "BLE";
 
 namespace ble {
 
-    static constexpr const char BLE_GAP_NAME[] = "Inverter-Monitor";
+    static uint8_t address                                   = 0;
+    static constexpr const char BLE_GAP_NAME[]               = "Inverter-Monitor";
+    static constexpr auto DEVICE_UUID                        = BLE_UUID16_DECLARE(0x0180);
+    static constexpr auto READ_UUID                          = BLE_UUID16_DECLARE(0xFFFF);
+    static constexpr auto WRITE_UUID                         = BLE_UUID16_DECLARE(0xDDDD);
 
-    static constexpr struct ble_gatt_svc_def gatt_svc[] = {
-
+    static constexpr struct ble_gatt_svc_def gatt_svc[]      = {
+        {
+            .type = BLE_GATT_SVC_TYPE_PRIMARY,
+            .uuid = DEVICE_UUID,
+            .characteristics = (struct ble_gatt_chr_def[]){
+                { .uuid = READ_UUID, .access_cb = device_read, .arg = nullptr, .flags = BLE_GATT_CHR_F_READ },
+                { .uuid = WRITE_UUID, .access_cb = device_write, .arg = nullptr, .flags = BLE_GATT_CHR_F_WRITE },
+                { 0 }
+            }
+        },
+        { 0 }
     };
 
     // Forward declarations
-    static void nimble_host_task(void* arg);
+    static void ble_advertise(void);
+    static void ble_event_handler(struct ble_gap_event* event, void* arg);
+    static int device_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
+    static int device_write(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
 
     esp_err_t init(void) {
 
@@ -104,12 +120,22 @@ namespace ble {
             BLE_LOGE("Failed to queue service definitions for registration");
             return ESP_FAIL;
         }
+        
+        ble_hs_cfg.gatts_register_arg = nullptr;
+        ble_hs_cfg.sync_cb = []() {
+            ble_hs_id_infer_auto(0, &address);
+            ble_advertise();
+        };
 
         // Initialize GATT server
         ble_svc_gatt_init();
 
         // Start nimble freertos task
-        nimble_port_freertos_init(nimble_host_task);
+        nimble_port_freertos_init([](void* arg) {
+            nimble_port_run();
+            // If nimble_port_run returns, we delete the task
+            vTaskDelete(nullptr);
+        });
 
         return ret;
     }
@@ -151,8 +177,20 @@ namespace ble {
     }
 
     // Static helpers
-    static void nimble_host_task(void* arg) {
-        nimble_port_run();
+    static int device_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
+
     }
 
+    static int device_write(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
+
+    }
+
+    static void ble_advertise(void) {
+
+    }
+
+    static void ble_event_handler(struct ble_gap_event* event, void* arg) {
+
+    }
+    
 } // namespace ble
