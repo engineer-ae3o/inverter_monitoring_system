@@ -58,6 +58,7 @@ static const char* TAG = "MAIN";
 #define CALC_TASK_PROFILING                                 0
 #define DISPLAY_TASK_PROFILING                              0
 #define LVGL_TASK_PROFILING                                 0
+#define BLE_TASK_PROFILING                                  0
 
 using namespace config;
 
@@ -90,6 +91,11 @@ static StaticTask_t lvgl_task_buffer;
 static TaskHandle_t log_task_handle = nullptr;
 static StackType_t log_task_stack[LOG_TASK_STACK_SIZE];
 static StaticTask_t log_task_buffer;
+
+// BLE task parameters
+static TaskHandle_t ble_task_handle = nullptr;
+static StackType_t ble_task_stack[BLE_TASK_STACK_SIZE];
+static StaticTask_t ble_task_buffer;
 
 //  Queue parameters
 // AHT data queue
@@ -261,7 +267,7 @@ void lvgl_handler_task(void* arg) {
 
 #if LVGL_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
-        LOGI("Time for lvgl_handler_task: %.3fms", static_cast<float>(end[i]) / 1000);
+        LOGI("Time for lvgl_handler_task: %.3fms", static_cast<float>(end[i]) / 1000.0f);
 
         i++;
         if (i >= 100) {
@@ -270,7 +276,7 @@ void lvgl_handler_task(void* arg) {
                 average += end[j];
             }
             average /= 100;
-            LOGI("Average execution time for lvgl_handler_task: %.3fms", average / 1000);
+            LOGI("Average execution time for lvgl_handler_task: %.3fms", average / 1000.0f);
             i = 0;
         }
 #endif
@@ -318,7 +324,7 @@ void aht_task(void* arg) {
 
 #if AHT_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
-        LOGI("Time for aht_task: %.3fms", static_cast<float>(end[i]) / 1000);
+        LOGI("Time for aht_task: %.3fms", static_cast<float>(end[i]) / 1000.0f);
 
         i++;
         if (i >= 100) {
@@ -327,7 +333,7 @@ void aht_task(void* arg) {
                 average += end[j];
             }
             average /= 100;
-            LOGI("Average execution time for aht_task: %.3fms", average / 1000);
+            LOGI("Average execution time for aht_task: %.3fms", average / 1000.0f);
             i = 0;
         }
 #endif
@@ -420,7 +426,7 @@ void log_task(void* arg) {
 
 #if LOG_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
-        LOGI("Time for log_task: %.3fms", static_cast<float>(end[i]) / 1000);
+        LOGI("Time for log_task: %.3fms", static_cast<float>(end[i]) / 1000.0f);
 
         i++;
         if (i >= 100) {
@@ -429,7 +435,7 @@ void log_task(void* arg) {
                 average += end[j];
             }
             average /= 100;
-            LOGI("Average execution time for log_task: %.3fms", average / 1000);
+            LOGI("Average execution time for log_task: %.3fms", average / 1000.0f);
             i = 0;
         }
 #endif
@@ -642,7 +648,7 @@ void display_task(void* arg) {
 
 #if DISPLAY_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
-        LOGI("Time for display_task: %.3fms", static_cast<float>(end[i]) / 1000);
+        LOGI("Time for display_task: %.3fms", static_cast<float>(end[i]) / 1000.0f);
         
         i++;
         if (i >= 100) {
@@ -651,7 +657,7 @@ void display_task(void* arg) {
                 average += end[j];
             }
             average /= 100;
-            LOGI("Average execution time for display_task: %.3fms", average / 1000);
+            LOGI("Average execution time for display_task: %.3fms", average / 1000.0f);
             i = 0;
         }
 #endif
@@ -662,6 +668,9 @@ void display_task(void* arg) {
 void ble_task(void* arg) {
 
     LOGI("ble_task started");
+
+    sys::data_t data = {};
+    esp_err_t ret = ESP_OK;
 
 #if BLE_TASK_PROFILING == 1
     int64_t end[100] = {};
@@ -674,11 +683,23 @@ void ble_task(void* arg) {
         int64_t start = esp_timer_get_time();
 #endif
 
+        if (xQueueReceive(final_data_queue, &data, pdMS_TO_TICKS(BLE_TASK_PERIOD_MS)) != pdTRUE) {
+            LOGW("Failed to receive data from final_data_queue (ble_task)");
+            continue;
+        }
 
+        ret = ble::notify_data(data);
+        if (ret == ESP_OK) {
+            LOGI("Data sent via BLE notification successfully");
+        } else if (ret == ESP_ERR_INVALID_STATE) {
+            LOGW("BLE client not connected or subscibed");
+        } else {
+            LOGI("Failed to send data notification: %s", esp_err_to_name(ret));
+        }
 
 #if BLE_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
-        LOGI("Time for display_task: %.3fms", static_cast<float>(end[i]) / 1000);
+        LOGI("Time for ble_task: %.3fms", static_cast<float>(end[i]) / 1000.0f);
         
         i++;
         if (i >= 100) {
@@ -687,10 +708,12 @@ void ble_task(void* arg) {
                 average += end[j];
             }
             average /= 100;
-            LOGI("Average execution time for display_task: %.3fms", average / 1000);
+            LOGI("Average execution time for ble_task: %.3fms", average / 1000.0f);
             i = 0;
         }
 #endif
+
+        vTaskDelay(pdMS_TO_TICKS(BLE_TASK_PERIOD_MS));
     }
 }
 
@@ -774,6 +797,17 @@ extern "C" {
                                                      &calc_task_buffer
         );
         ASSERT(calc_runtime_task_handle, "calc_runtime_task_handle cannot be null");
+
+        ble_task_handle = xTaskCreateStatic(
+                                            ble_task, 
+                                            "BLETask", 
+                                            BLE_TASK_STACK_SIZE, 
+                                            nullptr, 
+                                            BLE_TASK_PRIORITY, 
+                                            ble_task_stack,
+                                            &ble_task_buffer
+        );
+        ASSERT(ble_task_handle, "ble_task_handle cannot be null");
     }
 
 } // extern "C"

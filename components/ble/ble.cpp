@@ -45,84 +45,55 @@ namespace ble {
 
     static uint8_t address                                          = 0;
     static bool is_advertising                                      = false;
+    static bool is_connected                                        = false;
     static bool is_subscribed                                       = false;
     static constexpr const char BLE_GAP_NAME[]                      = "Inverter-Monitor";
+    static constexpr uint8_t MIN_KEY_SIZE                           = 6;
 
-    static constexpr auto AHT_SERVICE_UUID                          = BLE_UUID16_DECLARE(0x181A);
-    static constexpr auto TEMPERATURE_CHAR_UUID                     = BLE_UUID16_DECLARE(0x2A6E);
-    static constexpr auto HUMIDITY_CHAR_UUID                        = BLE_UUID16_DECLARE(0x2A6F);
-
-    static constexpr auto ADC_SERVICE_UUID                          = BLE_UUID16_DECLARE(0x2B19);
-    static constexpr auto VOLTAGE_CHAR_UUID                         = BLE_UUID16_DECLARE(0x2B18);
-    static constexpr auto CURRENT_CHAR_UUID                         = BLE_UUID16_DECLARE(0x2AEE);
-    static constexpr auto POWER_CHAR_UUID                           = BLE_UUID16_DECLARE(0x2B05);
-
-    static constexpr auto BATTERY_SERVICE_UUID                      = BLE_UUID16_DECLARE(0x180F);
-    static constexpr auto SoC_CHAR_UUID                             = BLE_UUID16_DECLARE(0x2A19);
-    static constexpr auto RUNTIME_CHAR_UUID                         = BLE_UUID16_DECLARE(0x2A1A);
+    static constexpr ble_uuid16_t AHT_SERVICE_UUID                   = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x181A };
+    static constexpr ble_uuid16_t TEMPERATURE_CHAR_UUID              = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A6E };
+    static constexpr ble_uuid16_t HUMIDITY_CHAR_UUID                 = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A6F };
+    
+    static constexpr ble_uuid16_t ADC_SERVICE_UUID                   = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2B19 };
+    static constexpr ble_uuid16_t VOLTAGE_CHAR_UUID                  = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2B18 };
+    static constexpr ble_uuid16_t CURRENT_CHAR_UUID                  = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2AEE };
+    static constexpr ble_uuid16_t POWER_CHAR_UUID                    = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2B05 };
+    
+    static constexpr ble_uuid16_t BATTERY_SERVICE_UUID               = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x180F };
+    static constexpr ble_uuid16_t SoC_CHAR_UUID                      = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A19 };
+    static constexpr ble_uuid16_t RUNTIME_CHAR_UUID                  = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A1A };
 
     // Forward declarations
     static void ble_advertise(void);
+    static void fill_gatts_def(void);
     static int ble_event_handler(ble_gap_event* event, void* arg);
 
-    static int temperature_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
-    static int humidity_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
+    static int temperature_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
+    static int humidity_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
 
-    static int voltage_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
-    static int current_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
-    static int power_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
+    static int voltage_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
+    static int current_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
+    static int power_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
 
-    static int battery_soc_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
-    static int runtime_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
+    static int battery_soc_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
+    static int runtime_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
 
+    using ble_gatt_svc_def_t = struct ble_gatt_svc_def;
+    using ble_gatt_chr_def_t = struct ble_gatt_chr_def;
+    
     // Service definitions
+    // Array of services
+    static ble_gatt_svc_def_t gatt_svc[4] = {};
+
     // Service for AHT data (temperature and humidity)
-    static constexpr struct ble_gatt_svc_def aht_svc = {
-        .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = AHT_SERVICE_UUID,
-        .characteristics = (struct ble_gatt_chr_def[]){
-            // Temperature characteristics
-            { .uuid = TEMPERATURE_CHAR_UUID, .access_cb = temperature_read, .arg = nullptr, .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY},
-            // Humiidity characteristics
-            { .uuid = HUMIDITY_CHAR_UUID, .access_cb = humidity_read, .arg = nullptr, .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY },
-            // Characteristics array termination
-            { 0 }
-        }
-    };
+    static ble_gatt_chr_def_t aht_chr[3] = {};
 
     // Service for ADC data (voltage, current and power data) characteristics
-    static constexpr struct ble_gatt_svc_def adc_svc = {
-        .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = ADC_SERVICE_UUID,
-        .characteristics = (struct ble_gatt_chr_def[]){
-            // Voltage characteristics
-            { .uuid = VOLTAGE_CHAR_UUID, .access_cb = voltage_read, .arg = nullptr, .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY },
-            // Current characteristics
-            { .uuid = CURRENT_CHAR_UUID, .access_cb = current_read, .arg = nullptr, .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY },
-            // Power characteristics
-            { .uuid = POWER_CHAR_UUID, .access_cb = power_read, .arg = nullptr, .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY },
-            // Characteristics array termination
-            { 0 }
-        }
-    };
+    static ble_gatt_chr_def_t adc_chr[4] = {};
 
     // Service for battery state and runtime/charge time characteristics
-    static constexpr struct ble_gatt_svc_def batt_svc = {
-        .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = BATTERY_SERVICE_UUID,
-        .characteristics = (struct ble_gatt_chr_def[]){
-            // Battery SoC characteristics
-            { .uuid = SoC_CHAR_UUID, .access_cb = battery_soc_read, .arg = nullptr, .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY },
-            // Runtime/Charge time characteristics
-            { .uuid = RUNTIME_CHAR_UUID, .access_cb = runtime_read, .arg = nullptr, .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY },
-            // Characteristics array termination
-            { 0 }
-        }
-    };
+    static ble_gatt_chr_def_t batt_chr[3] = {};
 
-    static constexpr struct ble_gatt_svc_def gatt_svc[] = {
-        aht_svc, adc_svc, batt_svc, { 0 }
-    };
 
     // Public APIs
     esp_err_t init(void) {
@@ -263,6 +234,9 @@ namespace ble {
         ble_store_config_init();
         
         // GATT settings
+        // Fill service struct definitions
+        fill_gatts_def();
+
         // Adjust host configuration settings
         rc = ble_gatts_count_cfg(gatt_svc);
         if (rc != 0) {
@@ -328,6 +302,19 @@ namespace ble {
 
     esp_err_t notify_data(const sys::data_t& data) {
 
+        if (!is_connected) {
+            BLE_LOGW("No BLE client connected");
+            return ESP_ERR_INVALID_STATE;
+        }
+
+        if (!is_subscribed) {
+            BLE_LOGW("Device not subscribed, can't send notifications");
+            return ESP_ERR_INVALID_STATE;
+        }
+
+        // TODO: Implement notification
+
+        return ESP_OK;
     }
 
     esp_err_t start(void) {
@@ -416,7 +403,7 @@ namespace ble {
         
         is_advertising = true;
     }
-    
+  
     static int ble_event_handler(ble_gap_event* event, void* arg) {
         int ret = 0;
 
@@ -450,35 +437,128 @@ namespace ble {
         return ret;
     }
 
-    static int temperature_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
+    static void fill_gatts_def(void) {
+
+        // Service for AHT data (temperature and humidity)
+        // Temperature characteristics
+        aht_chr[0] = {
+            .uuid = &TEMPERATURE_CHAR_UUID.u,
+            .access_cb = temperature_chr,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = MIN_KEY_SIZE
+        };
+        // Humidity characteristics
+        aht_chr[1] = {
+            .uuid = &HUMIDITY_CHAR_UUID.u,
+            .access_cb = humidity_chr,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = MIN_KEY_SIZE
+        };
+        // Characteristics array termination
+        aht_chr[2] = {};
+
+        // AHT data services definition
+        gatt_svc[0].type = BLE_GATT_SVC_TYPE_PRIMARY;
+        gatt_svc[0].uuid = &AHT_SERVICE_UUID.u;
+        gatt_svc[0].characteristics = aht_chr;
+
+        // Service for ADC data (voltage, current and power data) characteristics
+        // Voltage characteristics
+        adc_chr[0] = {
+            .uuid = &VOLTAGE_CHAR_UUID.u,
+            .access_cb = voltage_chr,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = MIN_KEY_SIZE
+        };
+        // Current characteristics
+        adc_chr[1] = {
+            .uuid = &CURRENT_CHAR_UUID.u,
+            .access_cb = current_chr,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = MIN_KEY_SIZE
+        };
+        // Power characteristics
+        adc_chr[2] = {
+            .uuid = &POWER_CHAR_UUID.u,
+            .access_cb = power_chr,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = MIN_KEY_SIZE
+        };
+        // Characteristics array termination
+        adc_chr[3] = {};
+
+        // ADC data services definition
+        gatt_svc[1].type = BLE_GATT_SVC_TYPE_PRIMARY;
+        gatt_svc[1].uuid = &ADC_SERVICE_UUID.u;
+        gatt_svc[1].characteristics = adc_chr;
+
+        // Service for battery state and runtime/charge time characteristics
+        // Battery SoC characteristics
+        batt_chr[0] = {
+            .uuid = &SoC_CHAR_UUID.u,
+            .access_cb = battery_soc_chr,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = MIN_KEY_SIZE
+        };
+        // Runtime/Charge time characteristics
+        batt_chr[1] = {
+            .uuid = &RUNTIME_CHAR_UUID.u,
+            .access_cb = runtime_chr,
+            .arg = nullptr,
+            .descriptors = nullptr,
+            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+            .min_key_size = MIN_KEY_SIZE
+        };
+        // Characteristics array termination
+        batt_chr[2] = {};
+
+        // Battery data services definition
+        gatt_svc[2].type = BLE_GATT_SVC_TYPE_PRIMARY;
+        gatt_svc[2].uuid = &BATTERY_SERVICE_UUID.u;
+        gatt_svc[2].characteristics = batt_chr;
+
+        // Services array termination
+        gatt_svc[3] = {};
+    }
+
+    static int temperature_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
         return 0;
-    }\
-
-
-
-
-    static int humidity_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-
     }
 
-    static int voltage_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-
+    static int humidity_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
+        return 0;
     }
 
-    static int current_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-
+    static int voltage_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
+        return 0;
     }
 
-    static int power_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-
+    static int current_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
+        return 0;
     }
 
-    static int battery_soc_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-
+    static int power_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
+        return 0;
     }
 
-    static int runtime_read(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
+    static int battery_soc_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
+        return 0;
+    }
 
+    static int runtime_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
+        return 0;
     }
 
 } // namespace ble

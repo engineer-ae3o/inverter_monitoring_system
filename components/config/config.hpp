@@ -35,6 +35,10 @@ namespace config {
     constexpr inline uint16_t LOG_TASK_STACK_SIZE                    = 3072;
     constexpr inline uint16_t LOG_TASK_PRIORITY                      = 2;
     constexpr inline uint16_t LOG_TASK_PERIOD_MS                     = 30 * 1000; // 30s
+
+    constexpr inline uint16_t BLE_TASK_STACK_SIZE                    = 2048;
+    constexpr inline uint16_t BLE_TASK_PRIORITY                      = 4;
+    constexpr inline uint16_t BLE_TASK_PERIOD_MS                     = 5 * 1000; // 5s
     
     // Pin definitions
     constexpr inline gpio_num_t AHT_SDA_PIN                          = GPIO_NUM_14;
