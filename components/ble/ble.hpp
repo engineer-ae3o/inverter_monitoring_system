@@ -1,7 +1,7 @@
 #ifndef _BLE_HPP_
 #define _BLE_HPP_
 
-
+#include "system.hpp"
 #include "esp_err.h"
 
 
@@ -22,6 +22,25 @@ namespace ble {
      * @return ESP_OK on success, error code otherwise
      */
     esp_err_t deinit(void);
+
+    /**
+     * @brief Sends data over BLE as a notification
+     * 
+     * @return ESP_OK on success, error code otherwise
+     */
+    esp_err_t notify_data(const sys::data_t& data);
+
+    /**
+     * @brief Start BLE advertising
+     */
+    void start(void);
+
+    /**
+     * @brief Stops BLE advertising
+     * 
+     * @return ESP_OK on success, error code otherwise
+     */
+    esp_err_t stop(void);
 
 } // namespace ble
 

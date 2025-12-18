@@ -33,7 +33,7 @@ typedef enum {
 /**
  * @brief Initialize the AHT20 on the specified GPIO I2C pins
  * 
- * @param pin GPIO pins for SDA and SCL. Has default arguments of gpio pins 21 and 22 by default
+ * @param pin GPIO pins for SDA and SCL
  * 
  * @return AHT_OK on success, AHT_FAIL on I2C error, AHT_INVALID_ARGS if pins are invalid
  * 

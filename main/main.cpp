@@ -409,10 +409,8 @@ void log_task(void* arg) {
         // to overwrite the old data index currently present because we don't need it
         rewind(f_meta_data_file);
         fwrite(&data_file_index, sizeof(data_file_index), 1, f_meta_data_file);
-
-        // Force buffered data to flash immediately
-        fflush(f_data_file);
-        fflush(f_meta_data_file);
+        
+        // No need to call `fflush()` as `fwrite()` writes to flash immediately
 
 #if LOG_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
