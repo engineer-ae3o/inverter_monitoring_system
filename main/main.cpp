@@ -201,6 +201,12 @@ static void init_all(void) {
         LOGE("Failed to mount littlefs partition: %s", esp_err_to_name(result));
         sys::handle_error();
     }
+
+    result = ble::init();
+    if (result != ESP_OK) {
+        LOGE("Failed to initialize BLE GATT server: %s", esp_err_to_name(result));
+        sys::handle_error();
+    }
     
     LOGI("Initialization Complete");
 }
@@ -635,6 +641,42 @@ void display_task(void* arg) {
         xSemaphoreGive(lvgl_display_mutex);
 
 #if DISPLAY_TASK_PROFILING == 1
+        end[i] = esp_timer_get_time() - start;
+        LOGI("Time for display_task: %.3fms", static_cast<float>(end[i]) / 1000);
+        
+        i++;
+        if (i >= 100) {
+            double average = 0;
+            for (size_t j = 0; j < 100; j++) {
+                average += end[j];
+            }
+            average /= 100;
+            LOGI("Average execution time for display_task: %.3fms", average / 1000);
+            i = 0;
+        }
+#endif
+    }
+}
+
+// BLE notification task
+void ble_task(void* arg) {
+
+    LOGI("ble_task started");
+
+#if BLE_TASK_PROFILING == 1
+    int64_t end[100] = {};
+    size_t i = 0;
+#endif
+
+    while (1) {
+
+#if BLE_TASK_PROFILING == 1
+        int64_t start = esp_timer_get_time();
+#endif
+
+
+
+#if BLE_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
         LOGI("Time for display_task: %.3fms", static_cast<float>(end[i]) / 1000);
         

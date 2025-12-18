@@ -32,8 +32,10 @@ namespace ble {
 
     /**
      * @brief Start BLE advertising
+     * 
+     * @return ESP_OK on success, error code otherwise
      */
-    void start(void);
+    esp_err_t start(void);
 
     /**
      * @brief Stops BLE advertising
