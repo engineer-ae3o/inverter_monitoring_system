@@ -1,11 +1,18 @@
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+
 #include "ble.hpp"
+#include "ble_data.hpp"
 
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
 
+#include "os/os_mbuf.h"
+
 #include "host/ble_hs.h"
 #include "host/util/util.h"
 #include "host/ble_uuid.h"
+#include "host/ble_gatt.h"
 
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
@@ -37,19 +44,34 @@ static const char* TAG = "BLE";
 // Set to 1 if you want `ble::deinit()` to deinitialize nvs flash
 #define DEINIT_NVS_FROM_BLE_DEINIT              0
 
-// We extern this function because the devs thought it was a good idea to not declare it in a header file
-// Maybe I didn't search hard enough, but I doubt that
-extern void ble_store_config_init(void);
+// We declare this function because the devs thought it was a good idea to not
+// declare it in a header file. Maybe I didn't search hard enough
+void ble_store_config_init(void);
+
+// Pardon my type aliases, but i prefer suffixing my struct names with `_t`
+// It's easier to work with. If you're wondering why i didn't do for all,
+// it's because they're too many
+using ble_gatt_svc_def_t = struct ble_gatt_svc_def;
+using ble_gatt_chr_def_t = struct ble_gatt_chr_def;
+using ble_gatt_access_ctxt_t = struct ble_gatt_access_ctxt;
+using os_mbuf_t = struct os_mbuf;
 
 namespace ble {
 
-    static uint8_t address                                          = 0;
-    static bool is_advertising                                      = false;
-    static bool is_connected                                        = false;
-    static bool is_subscribed                                       = false;
-    static constexpr const char BLE_GAP_NAME[]                      = "Inverter-Monitor";
-    static constexpr uint8_t MIN_KEY_SIZE                           = 6;
+    // Don't know what to put here lol
+    static uint8_t address_type                                      = 0;
+    static uint16_t connection_handle                                = 0;
 
+    // Flags
+    static bool is_advertising                                       = false;
+    static bool is_connected                                         = false;
+    static bool is_subscribed                                        = false;
+
+    // Constants
+    static constexpr uint8_t MIN_KEY_SIZE                            = 6;
+    static constexpr const char BLE_GAP_NAME[]                       = "Inverter-Monitor";
+
+    // 16 bit UUIDs for all services and characteristics
     static constexpr ble_uuid16_t AHT_SERVICE_UUID                   = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x181A };
     static constexpr ble_uuid16_t TEMPERATURE_CHAR_UUID              = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A6E };
     static constexpr ble_uuid16_t HUMIDITY_CHAR_UUID                 = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A6F };
@@ -63,29 +85,33 @@ namespace ble {
     static constexpr ble_uuid16_t SoC_CHAR_UUID                      = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A19 };
     static constexpr ble_uuid16_t RUNTIME_CHAR_UUID                  = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A1A };
 
+    // Handles for all characteristics. Needed for notifications
+    static uint16_t temp_chr_handle                                  = 0;
+    static uint16_t hmdt_chr_handle                                  = 0;
+    static uint16_t voltage_chr_handle                               = 0;
+    static uint16_t current_chr_handle                               = 0;
+    static uint16_t power_chr_handle                                 = 0;
+    static uint16_t battery_soc_chr_handle                           = 0;
+    static uint16_t runtime_chr_handle                               = 0;
+
     // Forward declarations
     static void ble_advertise(void);
     static void fill_gatts_def(void);
     static int ble_event_handler(ble_gap_event* event, void* arg);
 
-    static int temperature_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
-    static int humidity_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
+    // Callbacks for characteristics that get called when a client interacts with them
+    static int temperature_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg);
+    static int humidity_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg);
+    static int voltage_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg);
+    static int current_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg);
+    static int power_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg);
+    static int battery_soc_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg);
+    static int runtime_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg);
 
-    static int voltage_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
-    static int current_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
-    static int power_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
-
-    static int battery_soc_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
-    static int runtime_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg);
-
-    using ble_gatt_svc_def_t = struct ble_gatt_svc_def;
-    using ble_gatt_chr_def_t = struct ble_gatt_chr_def;
-    
-    // Service definitions
     // Array of services
     static ble_gatt_svc_def_t gatt_svc[4] = {};
 
-    // Service for AHT data (temperature and humidity)
+    // Service for AHT data (temperature and humidity) characteristics
     static ble_gatt_chr_def_t aht_chr[3] = {};
 
     // Service for ADC data (voltage, current and power data) characteristics
@@ -149,7 +175,7 @@ namespace ble {
         // Called when a GATTS descriptor, service or characteristics is registered
         ble_hs_cfg.gatts_register_cb = [](struct ble_gatt_register_ctxt* ctxt, void* arg) {
 
-            char buf[64]{};
+            char buf[64] = {};
 
             switch (ctxt->op) {
             case BLE_GATT_REGISTER_OP_SVC:
@@ -174,10 +200,10 @@ namespace ble {
         };
 
         // @brief This is called when the the host and controller get synced
-        // Determines the best address type to use for automatic address type resolution
+        // Determines the best address_type type to use for automatic address_type type resolution
         // @note We don't start advertising immediately as that is up to the user
         ble_hs_cfg.sync_cb = []() {
-            ble_hs_id_infer_auto(0, &address);
+            ble_hs_id_infer_auto(1, &address_type);
         };
 
         // This is called when the host and controller get reset due to a fatal error
@@ -204,7 +230,7 @@ namespace ble {
         ble_hs_cfg.sm_sc = 1;
 
         // This gets called when a persistence operation cannot be performed
-        ble_hs_cfg.store_status_cb = [](struct ble_store_status_event* event, void *arg) {
+        ble_hs_cfg.store_status_cb = [](struct ble_store_status_event* event, void* arg) {
 
             switch (event->event_code) {
             case BLE_STORE_EVENT_OVERFLOW:
@@ -300,19 +326,109 @@ namespace ble {
         return ret;
     }
 
+    // @note
+    // If you are using a generic BLE app like the nRF Connect or some other app, it
+    // will expect data in the format int16_t and an exponent of -2, so we multiply
+    // by 100 and cast to int16_t. The app receives the bytes, divides by 100 and gets
+    // its data and does whatever with it. Also, if you are sending to a big endian system,
+    // swap the bytes before sending using `__builtin_bswap16()` if you are on gcc
     esp_err_t notify_data(const sys::data_t& data) {
 
-        if (!is_connected) {
-            BLE_LOGW("No BLE client connected");
+        if (!is_connected || !is_subscribed) {
+            BLE_LOGW("No BLE client connected or device not subscribed");
             return ESP_ERR_INVALID_STATE;
         }
 
-        if (!is_subscribed) {
-            BLE_LOGW("Device not subscribed, can't send notifications");
-            return ESP_ERR_INVALID_STATE;
+        os_mbuf_t* om = {};
+        int ret = 0;
+
+        // Temperature characteristics
+        int16_t temperature = static_cast<int16_t>(data.inv_temp * 100);
+        om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
+        if (om && temp_chr_handle) {
+            ret = ble_gatts_notify_custom(connection_handle, temp_chr_handle, om);
+            if (ret == 0) {
+                BLE_LOGE("Temperature sent as notification");
+            } else {
+                BLE_LOGE("Failed to send temperature");
+            }
+        } else {
+            BLE_LOGE("Invalid handle");
         }
 
-        // TODO: Implement notification
+        // Humidity characteristics
+        int16_t humidity = static_cast<int16_t>(data.inv_hmdt * 100);
+        om = ble_hs_mbuf_from_flat(&humidity, sizeof(humidity));
+        if (om && hmdt_chr_handle) {
+            ret = ble_gatts_notify_custom(connection_handle, hmdt_chr_handle, om);
+            if (ret == 0) {
+                BLE_LOGE("Humidity sent as notification");
+            } else {
+                BLE_LOGE("Failed to send humidity");
+            }
+        } else {
+            BLE_LOGE("Failed to send humidity");
+        }
+
+        // Voltage characteristics
+        int16_t voltage = static_cast<int16_t>(data.battery_voltage * 100);
+        om = ble_hs_mbuf_from_flat(&voltage, sizeof(voltage));
+        if (om && temp_chr_handle) {
+            ret = ble_gatts_notify_custom(connection_handle, voltage_chr_handle, om);
+            if (ret == 0) {
+                BLE_LOGE("Voltage sent as notification");
+            } else {
+                BLE_LOGE("Failed to send voltage");
+            }
+        }
+
+        // Temperature characteristics
+        int16_t temperature = static_cast<int16_t>(data.inv_temp * 100);
+        om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
+        if (om && temp_chr_handle) {
+            ret = ble_gatts_notify_custom(connection_handle, temp_chr_handle, om);
+            if (ret == 0) {
+                BLE_LOGE("Temperature sent as notification");
+            } else {
+                BLE_LOGE("Failed to send temperature");
+            }
+        }
+
+        // Temperature characteristics
+        int16_t temperature = static_cast<int16_t>(data.inv_temp * 100);
+        om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
+        if (om && temp_chr_handle) {
+            ret = ble_gatts_notify_custom(connection_handle, temp_chr_handle, om);
+            if (ret == 0) {
+                BLE_LOGE("Temperature sent as notification");
+            } else {
+                BLE_LOGE("Failed to send temperature");
+            }
+        }
+
+        // Temperature characteristics
+        int16_t temperature = static_cast<int16_t>(data.inv_temp * 100);
+        om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
+        if (om && temp_chr_handle) {
+            ret = ble_gatts_notify_custom(connection_handle, temp_chr_handle, om);
+            if (ret == 0) {
+                BLE_LOGE("Temperature sent as notification");
+            } else {
+                BLE_LOGE("Failed to send temperature");
+            }
+        }
+
+        // Temperature characteristics
+        int16_t temperature = static_cast<int16_t>(data.inv_temp * 100);
+        om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
+        if (om && temp_chr_handle) {
+            ret = ble_gatts_notify_custom(connection_handle, temp_chr_handle, om);
+            if (ret == 0) {
+                BLE_LOGE("Temperature sent as notification");
+            } else {
+                BLE_LOGE("Failed to send temperature");
+            }
+        }
 
         return ESP_OK;
     }
@@ -362,8 +478,8 @@ namespace ble {
             return;
         }
 
-        struct ble_hs_adv_fields adv_fields{};
-        struct ble_gap_adv_params adv_params{};
+        struct ble_hs_adv_fields adv_fields = {};
+        struct ble_gap_adv_params adv_params = {};
 
         // Flags: General discoverable and BLE only
         adv_fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
@@ -378,6 +494,7 @@ namespace ble {
         adv_fields.name_len = strlen(name);
         adv_fields.name_is_complete = 1;
 
+        // TODO: Fill all UUIDs
         // UUID settings
         adv_fields.uuids16 = 0;
         adv_fields.num_uuids16 = 1;
@@ -395,7 +512,7 @@ namespace ble {
         adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
 
         // Start BLE advertising
-        ret = ble_gap_adv_start(address, nullptr, BLE_HS_FOREVER, &adv_params, ble_event_handler, nullptr);
+        ret = ble_gap_adv_start(address_type, nullptr, BLE_HS_FOREVER, &adv_params, ble_event_handler, nullptr);
         if (ret != 0) {
             BLE_LOGE("Failed to start BLE advertising: reason = %d", ret);
             return;
@@ -405,36 +522,46 @@ namespace ble {
     }
   
     static int ble_event_handler(ble_gap_event* event, void* arg) {
-        int ret = 0;
-
+        
         switch (event->type) {
         case BLE_GAP_EVENT_CONNECT:
-            
+            if (event->connect.status == 0) {
+                is_connected = true;
+                // Store connection handle to use for notifications
+                connection_handle = event->connect.conn_handle;
+                BLE_LOGI("Connection established");
+            } else {
+                BLE_LOGE("Connection failed. Resuming advertising");
+                ble_advertise();
+            }
             break;
+
         case BLE_GAP_EVENT_DISCONNECT:
-            
+            is_connected = false;
+            is_subscribed = false;
+            connection_handle = BLE_HS_CONN_HANDLE_NONE;
+
+            // Resume advertising
+            ble_advertise();
             break;
+
         case BLE_GAP_EVENT_SUBSCRIBE:
-            
+            is_subscribed = true;
+            BLE_LOGI("Device subscribed");
             break;
+
         case BLE_GAP_EVENT_ADV_COMPLETE:
-            
+            is_advertising = false;
+            is_connected = false;
+            is_subscribed = false;
+            BLE_LOGI("Advertising complete. Reason: %d", event->adv_complete.reason);
             break;
-        case BLE_GAP_EVENT_CONN_UPDATE:
-            
-            break;
-        case BLE_GAP_EVENT_PASSKEY_ACTION:
-            
-            break;
-        case BLE_GAP_EVENT_ENC_CHANGE:
-            
-            break;
+
         default:
-            BLE_LOGW("Unknown event occured: ");
+            BLE_LOGW("Unknown event occured: %d", event->type);
             break;
         }
-
-        return ret;
+        return 0;
     }
 
     static void fill_gatts_def(void) {
@@ -447,7 +574,8 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE
+            .min_key_size = MIN_KEY_SIZE,
+            .val_handle = &temp_chr_handle
         };
         // Humidity characteristics
         aht_chr[1] = {
@@ -456,7 +584,8 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE
+            .min_key_size = MIN_KEY_SIZE,
+            .val_handle = &hmdt_chr_handle
         };
         // Characteristics array termination
         aht_chr[2] = {};
@@ -474,7 +603,8 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE
+            .min_key_size = MIN_KEY_SIZE,
+            .val_handle = &voltage_chr_handle
         };
         // Current characteristics
         adc_chr[1] = {
@@ -483,7 +613,8 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE
+            .min_key_size = MIN_KEY_SIZE,
+            .val_handle = &current_chr_handle
         };
         // Power characteristics
         adc_chr[2] = {
@@ -492,7 +623,8 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE
+            .min_key_size = MIN_KEY_SIZE,
+            .val_handle = &power_chr_handle
         };
         // Characteristics array termination
         adc_chr[3] = {};
@@ -510,7 +642,8 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE
+            .min_key_size = MIN_KEY_SIZE,
+            .val_handle = &battery_soc_chr_handle
         };
         // Runtime/Charge time characteristics
         batt_chr[1] = {
@@ -519,7 +652,8 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE
+            .min_key_size = MIN_KEY_SIZE,
+            .val_handle = &runtime_chr_handle
         };
         // Characteristics array termination
         batt_chr[2] = {};
@@ -533,32 +667,123 @@ namespace ble {
         gatt_svc[3] = {};
     }
 
-    static int temperature_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-        return 0;
+    static int temperature_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
+
+        switch (ctxt->op) {
+        case BLE_GATT_ACCESS_OP_READ_CHR:
+            int16_t temperature = static_cast<int16_t>(get_temperature() * 100);
+            int ret = os_mbuf_append(ctxt->om, &temperature, sizeof(temperature));
+            return ret;
+
+        // Characteristics is read only
+        case BLE_GATT_ACCESS_OP_WRITE_CHR:
+            return BLE_ATT_ERR_WRITE_NOT_PERMITTED;
+
+        default:
+            return BLE_ATT_ERR_UNLIKELY;
+        }
     }
 
-    static int humidity_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-        return 0;
+    static int humidity_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
+
+        switch (ctxt->op) {
+        case BLE_GATT_ACCESS_OP_READ_CHR:
+            int16_t humidity = static_cast<int16_t>(get_humidity() * 100);
+            int ret = os_mbuf_append(ctxt->om, &humidity, sizeof(humidity));
+            return ret;
+
+        // Characteristics is read only
+        case BLE_GATT_ACCESS_OP_WRITE_CHR:
+            return BLE_ATT_ERR_WRITE_NOT_PERMITTED;
+
+        default:
+            return BLE_ATT_ERR_UNLIKELY;
+        }
     }
 
-    static int voltage_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-        return 0;
+    static int voltage_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
+
+        switch (ctxt->op) {
+        case BLE_GATT_ACCESS_OP_READ_CHR:
+            int16_t voltage = static_cast<int16_t>(get_voltage() * 100);
+            int ret = os_mbuf_append(ctxt->om, &voltage, sizeof(voltage));
+            return ret;
+
+        // Characteristics is read only
+        case BLE_GATT_ACCESS_OP_WRITE_CHR:
+            return BLE_ATT_ERR_WRITE_NOT_PERMITTED;
+
+        default:
+            return BLE_ATT_ERR_UNLIKELY;
+        }
     }
 
-    static int current_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-        return 0;
+    static int current_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
+
+        switch (ctxt->op) {
+        case BLE_GATT_ACCESS_OP_READ_CHR:
+            int16_t current = static_cast<int16_t>(get_current() * 100);
+            int ret = os_mbuf_append(ctxt->om, &current, sizeof(current));
+            return ret;
+
+        // Characteristics is read only
+        case BLE_GATT_ACCESS_OP_WRITE_CHR:
+            return BLE_ATT_ERR_WRITE_NOT_PERMITTED;
+
+        default:
+            return BLE_ATT_ERR_UNLIKELY;
+        }
     }
 
-    static int power_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-        return 0;
+    static int power_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
+
+        switch (ctxt->op) {
+        case BLE_GATT_ACCESS_OP_READ_CHR:
+            int16_t power = static_cast<int16_t>(get_power() * 100);
+            int ret = os_mbuf_append(ctxt->om, &power, sizeof(power));
+            return ret;
+
+        // Characteristics is read only
+        case BLE_GATT_ACCESS_OP_WRITE_CHR:
+            return BLE_ATT_ERR_WRITE_NOT_PERMITTED;
+
+        default:
+            return BLE_ATT_ERR_UNLIKELY;
+        }
     }
 
-    static int battery_soc_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-        return 0;
+    static int battery_soc_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
+
+        switch (ctxt->op) {
+        case BLE_GATT_ACCESS_OP_READ_CHR:
+            int16_t battery_soc = static_cast<int16_t>(get_battery_soc() * 100);
+            int ret = os_mbuf_append(ctxt->om, &battery_soc, sizeof(battery_soc));
+            return ret;
+
+        // Characteristics is read only
+        case BLE_GATT_ACCESS_OP_WRITE_CHR:
+            return BLE_ATT_ERR_WRITE_NOT_PERMITTED;
+
+        default:
+            return BLE_ATT_ERR_UNLIKELY;
+        }
     }
 
-    static int runtime_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt *ctxt, void *arg) {
-        return 0;
+    static int runtime_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
+
+        switch (ctxt->op) {
+        case BLE_GATT_ACCESS_OP_READ_CHR:
+            int16_t runtime = static_cast<int16_t>(get_runtime() * 100);
+            int ret = os_mbuf_append(ctxt->om, &runtime, sizeof(runtime));
+            return ret;
+
+        // Characteristics is read only
+        case BLE_GATT_ACCESS_OP_WRITE_CHR:
+            return BLE_ATT_ERR_WRITE_NOT_PERMITTED;
+
+        default:
+            return BLE_ATT_ERR_UNLIKELY;
+        }
     }
 
 } // namespace ble

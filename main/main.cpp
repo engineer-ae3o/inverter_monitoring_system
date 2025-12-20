@@ -238,6 +238,10 @@ static void queue_create(void) {
     }
 }
 
+QueueHandle_t get_data_queue(void) {
+    return final_data_queue;
+}
+
 //LVGL handler task
 void lvgl_handler_task(void* arg) {
 
