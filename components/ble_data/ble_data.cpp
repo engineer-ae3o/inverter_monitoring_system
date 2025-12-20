@@ -10,35 +10,43 @@ extern QueueHandle_t get_data_queue(void);
 namespace ble {
     
     static QueueHandle_t data_queue   = get_data_queue();
-    sys::data_t data                  = {};
+    static sys::data_t data           = {};
 
-    const float get_temperature(void) {
-
+    // We don't have to check the return value of `xQueuePeek`
+    // because we return the last cached data stored in data 
+    float get_temperature(void) {
+        xQueuePeek(data_queue, &data, 0);
+        return data.inv_temp;
     }
 
-    const float get_humidity(void) {
-
+    float get_humidity(void) {
+        xQueuePeek(data_queue, &data, 0);
+        return data.inv_hmdt;
     }
 
-    const float get_voltage(void) {
-
+    float get_voltage(void) {
+        xQueuePeek(data_queue, &data, 0);
+        return data.battery_voltage;
     }
 
-    const float get_current(void) {
-
+    float get_current(void) {
+        xQueuePeek(data_queue, &data, 0);
+        return data.load_current_drawn;
     }
 
-    const float get_power(void) {
-
+    float get_power(void) {
+        xQueuePeek(data_queue, &data, 0);
+        return data.power_drawn;
     }
 
-    const float get_battery_soc(void) {
-
+    float get_battery_soc(void) {
+        xQueuePeek(data_queue, &data, 0);
+        return data.battery_percent;
     }
 
-    const float get_runtime(void) {
-
+    float get_runtime(void) {
+        xQueuePeek(data_queue, &data, 0);
+        return data.runtime_left_s;
     }
-
 
 } // namespace ble

@@ -17,11 +17,11 @@ namespace button {
     /**
      * @brief Initialize button GPIO and ISR handlers
      * 
-     * @param[out] led_timer_handle A pointer to the timer handle which is responsible for led dimming
+     * @param[out] led_timer_handle Reference to the timer handle which is responsible for led dimming
      * 
      * @return ESP_OK on success, error code otherwise
      */
-    esp_err_t init(esp_timer_handle_t* led_timer_handle);
+    esp_err_t init(esp_timer_handle_t& led_timer_handle);
 
     /**
      * @brief Deinitialize button handler

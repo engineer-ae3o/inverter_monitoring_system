@@ -56,6 +56,7 @@ namespace config {
     
     constexpr inline gpio_num_t BUTTON_PREV_PIN                      = GPIO_NUM_25;
     constexpr inline gpio_num_t BUTTON_NEXT_PIN                      = GPIO_NUM_26;
+    constexpr inline gpio_num_t BLE_PIN                              = GPIO_NUM_28;
     
     // Button specification
     constexpr inline uint16_t BUTTON_DEBOUNCE_US                     = 50 * 1000;          // 30ms

@@ -1,6 +1,3 @@
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-
 #include "ble.hpp"
 #include "ble_data.hpp"
 
@@ -110,6 +107,7 @@ namespace ble {
 
     // Array of services
     static ble_gatt_svc_def_t gatt_svc[4] = {};
+    static constexpr ble_uuid16_t gatt_svc_uuid[3] = { AHT_SERVICE_UUID, ADC_SERVICE_UUID, BATTERY_SERVICE_UUID };
 
     // Service for AHT data (temperature and humidity) characteristics
     static ble_gatt_chr_def_t aht_chr[3] = {};
@@ -332,105 +330,130 @@ namespace ble {
     // by 100 and cast to int16_t. The app receives the bytes, divides by 100 and gets
     // its data and does whatever with it. Also, if you are sending to a big endian system,
     // swap the bytes before sending using `__builtin_bswap16()` if you are on gcc
-    esp_err_t notify_data(const sys::data_t& data) {
+    esp_err_t (const sys::data_t& data) {
 
         if (!is_connected || !is_subscribed) {
             BLE_LOGW("No BLE client connected or device not subscribed");
             return ESP_ERR_INVALID_STATE;
         }
 
-        os_mbuf_t* om = {};
+        os_mbuf_t* om = nullptr;
         int ret = 0;
+        esp_err_t result = ESP_OK;
 
-        // Temperature characteristics
+        // Temperature
         int16_t temperature = static_cast<int16_t>(data.inv_temp * 100);
         om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
         if (om && temp_chr_handle) {
             ret = ble_gatts_notify_custom(connection_handle, temp_chr_handle, om);
             if (ret == 0) {
-                BLE_LOGE("Temperature sent as notification");
+                BLE_LOGI("Temperature sent as notification");
             } else {
-                BLE_LOGE("Failed to send temperature");
+                BLE_LOGE("Failed to send temperature: %d", ret);
+                result = ESP_FAIL;
             }
         } else {
-            BLE_LOGE("Invalid handle");
+            BLE_LOGE("Invalid temperature handle or mbuf allocation failed");
+            result = ESP_FAIL;
         }
 
-        // Humidity characteristics
+        // Humidity
         int16_t humidity = static_cast<int16_t>(data.inv_hmdt * 100);
         om = ble_hs_mbuf_from_flat(&humidity, sizeof(humidity));
         if (om && hmdt_chr_handle) {
             ret = ble_gatts_notify_custom(connection_handle, hmdt_chr_handle, om);
             if (ret == 0) {
-                BLE_LOGE("Humidity sent as notification");
+                BLE_LOGI("Humidity sent as notification");
             } else {
-                BLE_LOGE("Failed to send humidity");
+                BLE_LOGE("Failed to send humidity: %d", ret);
+                result = ESP_FAIL;
             }
         } else {
-            BLE_LOGE("Failed to send humidity");
+            BLE_LOGE("Invalid humidity handle or mbuf allocation failed");
+            result = ESP_FAIL;
         }
 
-        // Voltage characteristics
+        // Voltage
         int16_t voltage = static_cast<int16_t>(data.battery_voltage * 100);
         om = ble_hs_mbuf_from_flat(&voltage, sizeof(voltage));
-        if (om && temp_chr_handle) {
+        if (om && voltage_chr_handle) {
             ret = ble_gatts_notify_custom(connection_handle, voltage_chr_handle, om);
             if (ret == 0) {
-                BLE_LOGE("Voltage sent as notification");
+                BLE_LOGI("Voltage sent as notification");
             } else {
-                BLE_LOGE("Failed to send voltage");
+                BLE_LOGE("Failed to send voltage: %d", ret);
+                result = ESP_FAIL;
             }
+        } else {
+            BLE_LOGE("Invalid voltage handle or mbuf allocation failed");
+            result = ESP_FAIL;
         }
 
-        // Temperature characteristics
-        int16_t temperature = static_cast<int16_t>(data.inv_temp * 100);
-        om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
-        if (om && temp_chr_handle) {
-            ret = ble_gatts_notify_custom(connection_handle, temp_chr_handle, om);
+        // Current
+        int16_t current = static_cast<int16_t>(data.load_current_drawn * 100);
+        om = ble_hs_mbuf_from_flat(&current, sizeof(current));
+        if (om && current_chr_handle) {
+            ret = ble_gatts_notify_custom(connection_handle, current_chr_handle, om);
             if (ret == 0) {
-                BLE_LOGE("Temperature sent as notification");
+                BLE_LOGI("Current sent as notification");
             } else {
-                BLE_LOGE("Failed to send temperature");
+                BLE_LOGE("Failed to send current: %d", ret);
+                result = ESP_FAIL;
             }
+        } else {
+            BLE_LOGE("Invalid current handle or mbuf allocation failed");
+            result = ESP_FAIL;
         }
 
-        // Temperature characteristics
-        int16_t temperature = static_cast<int16_t>(data.inv_temp * 100);
-        om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
-        if (om && temp_chr_handle) {
-            ret = ble_gatts_notify_custom(connection_handle, temp_chr_handle, om);
+        // Power
+        int16_t power = static_cast<int16_t>(data.power_drawn * 100);
+        om = ble_hs_mbuf_from_flat(&power, sizeof(power));
+        if (om && power_chr_handle) {
+            ret = ble_gatts_notify_custom(connection_handle, power_chr_handle, om);
             if (ret == 0) {
-                BLE_LOGE("Temperature sent as notification");
+                BLE_LOGI("Power sent as notification");
             } else {
-                BLE_LOGE("Failed to send temperature");
+                BLE_LOGE("Failed to send power: %d", ret);
+                result = ESP_FAIL;
             }
+        } else {
+            BLE_LOGE("Invalid power handle or mbuf allocation failed");
+            result = ESP_FAIL;
         }
 
-        // Temperature characteristics
-        int16_t temperature = static_cast<int16_t>(data.inv_temp * 100);
-        om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
-        if (om && temp_chr_handle) {
-            ret = ble_gatts_notify_custom(connection_handle, temp_chr_handle, om);
+        // Battery SoC
+        int16_t battery_soc = static_cast<int16_t > (data.battery_percent * 100);
+        om = ble_hs_mbuf_from_flat(&battery_soc, sizeof(battery_soc));
+        if (om && battery_soc_chr_handle) {
+            ret = ble_gatts_notify_custom(connection_handle, battery_soc_chr_handle, om);
             if (ret == 0) {
-                BLE_LOGE("Temperature sent as notification");
+                BLE_LOGI("Battery SoC sent as notification");
             } else {
-                BLE_LOGE("Failed to send temperature");
+                BLE_LOGE("Failed to send battery SoC: %d", ret);
+                result = ESP_FAIL;
             }
+        } else {
+            BLE_LOGE("Invalid battery SoC handle or mbuf allocation failed");
+            result = ESP_FAIL;
         }
 
-        // Temperature characteristics
-        int16_t temperature = static_cast<int16_t>(data.inv_temp * 100);
-        om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
-        if (om && temp_chr_handle) {
-            ret = ble_gatts_notify_custom(connection_handle, temp_chr_handle, om);
+        // Runtime
+        int16_t runtime = static_cast<int16_t>(data.runtime_left_s * 100);
+        om = ble_hs_mbuf_from_flat(&runtime, sizeof(runtime));
+        if (om && runtime_chr_handle) {
+            ret = ble_gatts_notify_custom(connection_handle, runtime_chr_handle, om);
             if (ret == 0) {
-                BLE_LOGE("Temperature sent as notification");
+                BLE_LOGI("Runtime sent as notification");
             } else {
-                BLE_LOGE("Failed to send temperature");
+                BLE_LOGE("Failed to send runtime: %d", ret);
+                result = ESP_FAIL;
             }
+        } else {
+            BLE_LOGE("Invalid runtime handle or mbuf allocation failed");
+            result = ESP_FAIL;
         }
 
-        return ESP_OK;
+        return result;
     }
 
     esp_err_t start(void) {
@@ -496,8 +519,8 @@ namespace ble {
 
         // TODO: Fill all UUIDs
         // UUID settings
-        adv_fields.uuids16 = 0;
-        adv_fields.num_uuids16 = 1;
+        adv_fields.uuids16 = gatt_svc_uuid;
+        adv_fields.num_uuids16 = 3;
         adv_fields.uuids16_is_complete = 1;
 
         // Set advertising fields
@@ -520,7 +543,7 @@ namespace ble {
         
         is_advertising = true;
     }
-  
+
     static int ble_event_handler(ble_gap_event* event, void* arg) {
         
         switch (event->type) {
@@ -670,10 +693,11 @@ namespace ble {
     static int temperature_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
 
         switch (ctxt->op) {
-        case BLE_GATT_ACCESS_OP_READ_CHR:
+        case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t temperature = static_cast<int16_t>(get_temperature() * 100);
             int ret = os_mbuf_append(ctxt->om, &temperature, sizeof(temperature));
             return ret;
+        }
 
         // Characteristics is read only
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
@@ -682,15 +706,18 @@ namespace ble {
         default:
             return BLE_ATT_ERR_UNLIKELY;
         }
+        // To satisfy g++
+        return BLE_ATT_ERR_UNLIKELY;
     }
 
     static int humidity_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
 
         switch (ctxt->op) {
-        case BLE_GATT_ACCESS_OP_READ_CHR:
+        case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t humidity = static_cast<int16_t>(get_humidity() * 100);
             int ret = os_mbuf_append(ctxt->om, &humidity, sizeof(humidity));
             return ret;
+        }
 
         // Characteristics is read only
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
@@ -699,15 +726,18 @@ namespace ble {
         default:
             return BLE_ATT_ERR_UNLIKELY;
         }
+        // To satisfy g++
+        return BLE_ATT_ERR_UNLIKELY;
     }
 
     static int voltage_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
 
         switch (ctxt->op) {
-        case BLE_GATT_ACCESS_OP_READ_CHR:
+        case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t voltage = static_cast<int16_t>(get_voltage() * 100);
             int ret = os_mbuf_append(ctxt->om, &voltage, sizeof(voltage));
             return ret;
+        }
 
         // Characteristics is read only
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
@@ -716,15 +746,18 @@ namespace ble {
         default:
             return BLE_ATT_ERR_UNLIKELY;
         }
+        // To satisfy g++
+        return BLE_ATT_ERR_UNLIKELY;
     }
 
     static int current_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
 
         switch (ctxt->op) {
-        case BLE_GATT_ACCESS_OP_READ_CHR:
+        case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t current = static_cast<int16_t>(get_current() * 100);
             int ret = os_mbuf_append(ctxt->om, &current, sizeof(current));
             return ret;
+        }
 
         // Characteristics is read only
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
@@ -733,15 +766,18 @@ namespace ble {
         default:
             return BLE_ATT_ERR_UNLIKELY;
         }
+        // To satisfy g++
+        return BLE_ATT_ERR_UNLIKELY;
     }
 
     static int power_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
 
         switch (ctxt->op) {
-        case BLE_GATT_ACCESS_OP_READ_CHR:
+        case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t power = static_cast<int16_t>(get_power() * 100);
             int ret = os_mbuf_append(ctxt->om, &power, sizeof(power));
             return ret;
+        }
 
         // Characteristics is read only
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
@@ -750,15 +786,18 @@ namespace ble {
         default:
             return BLE_ATT_ERR_UNLIKELY;
         }
+        // To satisfy g++
+        return BLE_ATT_ERR_UNLIKELY;
     }
 
     static int battery_soc_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
 
         switch (ctxt->op) {
-        case BLE_GATT_ACCESS_OP_READ_CHR:
+        case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t battery_soc = static_cast<int16_t>(get_battery_soc() * 100);
             int ret = os_mbuf_append(ctxt->om, &battery_soc, sizeof(battery_soc));
             return ret;
+        }
 
         // Characteristics is read only
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
@@ -767,15 +806,18 @@ namespace ble {
         default:
             return BLE_ATT_ERR_UNLIKELY;
         }
+        // To satisfy g++
+        return BLE_ATT_ERR_UNLIKELY;
     }
 
     static int runtime_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg) {
 
         switch (ctxt->op) {
-        case BLE_GATT_ACCESS_OP_READ_CHR:
+        case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t runtime = static_cast<int16_t>(get_runtime() * 100);
             int ret = os_mbuf_append(ctxt->om, &runtime, sizeof(runtime));
             return ret;
+        }
 
         // Characteristics is read only
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
@@ -784,6 +826,8 @@ namespace ble {
         default:
             return BLE_ATT_ERR_UNLIKELY;
         }
+        // To satisfy g++
+        return BLE_ATT_ERR_UNLIKELY;
     }
 
 } // namespace ble

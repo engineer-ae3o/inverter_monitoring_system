@@ -56,12 +56,12 @@ namespace button {
     static void prev_button_debounce_timer_cb(TimerHandle_t xTimer);
 
 
-    esp_err_t init(esp_timer_handle_t* led_timer_handle) {
+    esp_err_t init(esp_timer_handle_t& led_timer_handle) {
 
         BTN_LOGI("Initializing button handler");
 
         const gpio_config_t button_config = {
-            .pin_bit_mask = (1ULL << config::BUTTON_NEXT_PIN) | (1ULL << config::BUTTON_PREV_PIN),
+            .pin_bit_mask = (1ULL << config::BUTTON_NEXT_PIN) | (1ULL << config::BUTTON_PREV_PIN) | (1ULL << config::BLE_PIN),
             .mode = GPIO_MODE_INPUT,
             .pull_up_en = GPIO_PULLUP_ENABLE,
             .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -237,7 +237,7 @@ namespace button {
             return ESP_FAIL;
         }
 
-        *led_timer_handle = led_to_50_percent_brightness_timer;
+        led_timer_handle = led_to_50_percent_brightness_timer;
         screen_is_on = true;
 
         BTN_LOGI("Initialization complete");

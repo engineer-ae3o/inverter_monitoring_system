@@ -58,7 +58,7 @@ static const char* TAG = "MAIN";
 #define CALC_TASK_PROFILING                                 0
 #define DISPLAY_TASK_PROFILING                              0
 #define LVGL_TASK_PROFILING                                 0
-#define BLE_TASK_PROFILING                                  0
+#define BLE_TASK_PROFILING                                  1
 
 using namespace config;
 
@@ -101,12 +101,12 @@ static StaticTask_t ble_task_buffer;
 // AHT data queue
 static QueueHandle_t aht_queue = nullptr;
 static StaticQueue_t aht_queue_buffer;
-static uint8_t aht_queue_stack[QUEUE_LENGTH * sizeof(aht20_data_t)];
+static uint8_t aht_queue_stack[sizeof(aht20_data_t)];
 
 // ADC data queue
 static QueueHandle_t power_queue = nullptr;
 static StaticQueue_t power_queue_buffer;
-static uint8_t power_queue_stack[QUEUE_LENGTH * sizeof(adc::data_t)];
+static uint8_t power_queue_stack[sizeof(adc::data_t)];
 
 // Runtime calc stats queue
 static QueueHandle_t final_data_queue = nullptr;
@@ -127,7 +127,6 @@ struct file_data_t {
 
 static esp_timer_handle_t display_led_timer_handle = nullptr;
 
-// Instance of the driver class
 static adc::driver power;
 
 static void init_all(void) {
@@ -147,7 +146,7 @@ static void init_all(void) {
     }
 
     // Button handler initialization
-    esp_err_t result = button::init(&display_led_timer_handle);
+    esp_err_t result = button::init(display_led_timer_handle);
     if (result != ESP_OK) {
         LOGE("Failed to initialize button handler: %s", esp_err_to_name(result));
         sys::handle_error();
@@ -219,13 +218,13 @@ static void init_all(void) {
 
 static void queue_create(void) {
 
-    aht_queue = xQueueCreateStatic(QUEUE_LENGTH, sizeof(aht20_data_t), aht_queue_stack, &aht_queue_buffer);
+    aht_queue = xQueueCreateStatic(1, sizeof(aht20_data_t), aht_queue_stack, &aht_queue_buffer);
     if (!aht_queue) {
         LOGE("Failed to create AHT20 sensor data queue");
         sys::handle_error();
     }
 
-    power_queue = xQueueCreateStatic(QUEUE_LENGTH, sizeof(adc::data_t), power_queue_stack, &power_queue_buffer);
+    power_queue = xQueueCreateStatic(1, sizeof(adc::data_t), power_queue_stack, &power_queue_buffer);
     if (!power_queue) {
         LOGE("Failed to create queue for power readings");
         sys::handle_error();
@@ -242,7 +241,7 @@ QueueHandle_t get_data_queue(void) {
     return final_data_queue;
 }
 
-//LVGL handler task
+// LVGL handler task
 void lvgl_handler_task(void* arg) {
 
     LOGI("Starting lvgl_handler_task");
@@ -266,7 +265,7 @@ void lvgl_handler_task(void* arg) {
             lv_timer_handler();
             xSemaphoreGive(lvgl_display_mutex);
         } else {
-            LOGW("Failed to take mutex. Skipping frames");
+            LOGW("Failed to take mutex. Skipping frame");
         }
 
 #if LVGL_TASK_PROFILING == 1
@@ -318,13 +317,7 @@ void aht_task(void* arg) {
             continue;
         }
 
-        if (xQueueSend(aht_queue, &data, 0) != pdTRUE) {
-            // Removing oldest data
-            aht20_data_t dummy = {};
-            xQueueReceive(aht_queue, &dummy, 0);
-            // Sending latest data again
-            xQueueSend(aht_queue, &data, 0);
-        }
+        xQueueOverwrite(aht_queue, &data);
 
 #if AHT_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
@@ -477,13 +470,7 @@ void adc_task(void* arg) {
             continue;
         }
 
-        if (xQueueSend(power_queue, &data, 0) != pdTRUE) {
-            // Removing oldest data
-            adc::data_t dummy = {};
-            xQueueReceive(power_queue, &dummy, 0);
-            // Sending latest data again
-            xQueueSend(power_queue, &data, 0);
-        }
+        xQueueOverwrite(power_queue, &data);
 
 #if ADC_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
@@ -640,7 +627,7 @@ void display_task(void* arg) {
             continue;
         }
 
-        if (xQueueReceive(final_data_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS / 5)) != pdTRUE) {
+        if (xQueueReceive(final_data_queue, &data, 0) != pdTRUE) {
             LOGW("Failed to receive data from final_data_queue");
             xSemaphoreGive(lvgl_display_mutex);
             continue;
@@ -674,7 +661,8 @@ void ble_task(void* arg) {
     LOGI("ble_task started");
 
     sys::data_t data = {};
-    esp_err_t ret = ESP_OK;
+    esp_err_t ret = ble::start();
+    ASSERT(ret == ESP_OK, "Failed to start ble advertising");
 
 #if BLE_TASK_PROFILING == 1
     int64_t end[100] = {};
