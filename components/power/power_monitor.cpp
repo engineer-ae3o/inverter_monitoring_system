@@ -22,16 +22,16 @@ static const char* TAG = "ADC";
 namespace adc {
 
     // Configuration constants
-    static constexpr uint16_t ADC_SAMPLE_RATE_HZ                = 20000;                   // (20,000Hz / 2) per channel
-    static constexpr uint16_t ADC_FRAME_SIZE                    = 128;                     // DMA buffer size (power of 2)
-    static constexpr uint8_t TIMEOUT_MS                         = 20;                      // Timeout 
+    static constexpr uint16_t ADC_SAMPLE_RATE_HZ                = 20000;      // (20,000Hz / 2) per channel
+    static constexpr uint16_t ADC_FRAME_SIZE                    = 128;        // DMA buffer size (power of 2)
+    static constexpr uint8_t TIMEOUT_MS                         = 20;         // Timeout 
 
     // Sensor calibration constants
-    static constexpr float ACS712_20A_SENSITIVITY               = 0.1;                     // 100mV/A
-    static constexpr float CURRENT_OFFSET_VOLTAGE               = 2.25;                    // Volatage reading at 0A
-    static constexpr float VOLTAGE_DIVIDER_RATIO                = 5;                       // 1:5 divider
-    static constexpr uint8_t TIMES_TO_MEASURE_ACS_OFFSET        = 25;                      // Times to measure ACS zero current offset voltage
-    static constexpr uint16_t ADC_RESOLUTION                    = 4096;                    // 12-bit ADC (2^12)
+    static constexpr float ACS712_20A_SENSITIVITY               = 0.1;        // 100mV/A
+    static constexpr float CURRENT_OFFSET_VOLTAGE               = 2.25;       // Volatage reading at 0A
+    static constexpr float VOLTAGE_DIVIDER_RATIO                = 5;          // 1:5 divider
+    static constexpr uint8_t TIMES_TO_MEASURE_ACS_OFFSET        = 25;         // Number of times to measure ACS zero current offset voltage
+    static constexpr uint16_t ADC_RESOLUTION                    = 4096;       // 12 bits (2^12)
     
     // Task context
     static constexpr uint8_t PROC_TASK_PRIORITY = 8;

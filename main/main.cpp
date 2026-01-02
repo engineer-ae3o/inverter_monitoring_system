@@ -58,7 +58,7 @@ static const char* TAG = "MAIN";
 #define CALC_TASK_PROFILING                                 0
 #define DISPLAY_TASK_PROFILING                              0
 #define LVGL_TASK_PROFILING                                 0
-#define BLE_TASK_PROFILING                                  1
+#define BLE_TASK_PROFILING                                  0
 
 using namespace config;
 
@@ -116,7 +116,7 @@ static void init_all(void) {
     ASSERT(display_led_timer_handle, "display_led_timer_handle cannot be null");
 
     // LCD Initialization
-    const st7735_config_t config = {
+    constexpr st7735_config_t config = {
         // SPI configuration
         .spi_host = SPI_LCD_HOST,
         .spi_clock_speed_hz = SPI_CLK_SPEED,
@@ -153,7 +153,7 @@ static void init_all(void) {
     }
 
     // LittleFS and partition initialization
-    const esp_vfs_littlefs_conf_t littlefs_config = {
+    constexpr esp_vfs_littlefs_conf_t littlefs_config = {
         .base_path = "/storage",
         .partition_label = "storage",
         .partition = nullptr,
@@ -353,8 +353,8 @@ void log_task(void* arg) {
         int64_t start = esp_timer_get_time();
 #endif
 
-        if (xQueueReceive(final_data_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS * 10)) != pdTRUE) {
-            LOGW("Failed to receive data from final_data_queue. Skipping current iteration of logging");
+        if (xQueuePeek(final_data_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
+            LOGW("Failed to receive data from final_data_queue (log_task)");
             vTaskDelay(pdMS_TO_TICKS(LOG_TASK_PERIOD_MS));
             continue;
         }
@@ -540,11 +540,11 @@ void display_task(void* arg) {
 
     // Initialize local variables being used
     button::event_t event = button::event_t::NO_EVENT;
-    sys::data_t data = {};
+    sys::data_t data{};
     esp_err_t ret = ESP_OK;
 
     // Arbitrary delay to allow the bootup screen flush properly before creating the UI
-    vTaskDelay(pdMS_TO_TICKS(150));
+    vTaskDelay(pdMS_TO_TICKS(100));
     display::create_ui();
 
     // Start timer which controls led dimming
@@ -563,7 +563,7 @@ void display_task(void* arg) {
 
         TWDT_RESET_FROM_TASK(display_task);
         
-        if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(TIMEOUT_MS * 2)) != pdTRUE) {
+        if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
             LOGW("Failed to take lvgl_display_mutex");
             continue;
         }
@@ -571,25 +571,25 @@ void display_task(void* arg) {
         // Check for button events
         if (xQueueReceive(btn_queue, &event, 0) == pdTRUE) {
             switch (event) {
-            // Loads next screen
+            // Load next screen
             case button::event_t::NEXT_BUTTON_PRESSED:
                 LOGI("NEXT button pressed");
                 display::next_screen();
                 break;
 
-            // Loads previous screen
+            // Load previous screen
             case button::event_t::PREV_BUTTON_PRESSED:
                 LOGI("PREV button pressed");
                 display::prev_screen();
                 break;
 
-            // Loads graph screen for voltage and current
+            // Load graph screen for voltage and current
             case button::event_t::NEXT_LONG_PRESSED:
                 // TODO: Implemen historical graph screen for voltage and current
                 LOGI("NEXT button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1000000));
                 break;
 
-            // Loads graph screen for temperature and humidity
+            // Load graph screen for temperature and humidity
             case button::event_t::PREV_LONG_PRESSED:
                 // TODO: Implement historical graph screen for temperature and humidity
                 LOGI("PREV button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1000000));
@@ -636,7 +636,7 @@ void display_task(void* arg) {
         }
 
         if (xQueueReceive(final_data_queue, &data, 0) != pdTRUE) {
-            LOGW("Failed to receive data from final_data_queue");
+            LOGW("Failed to receive data from final_data_queue (display_task)");
             xSemaphoreGive(lvgl_display_mutex);
             continue;
         }
@@ -682,7 +682,7 @@ void ble_task(void* arg) {
         int64_t start = esp_timer_get_time();
 #endif
 
-        if (xQueueReceive(final_data_queue, &data, pdMS_TO_TICKS(BLE_TASK_PERIOD_MS)) != pdTRUE) {
+        if (xQueuePeek(final_data_queue, &data, pdMS_TO_TICKS(BLE_TASK_PERIOD_MS)) != pdTRUE) {
             LOGW("Failed to receive data from final_data_queue (ble_task)");
             continue;
         }
@@ -691,7 +691,7 @@ void ble_task(void* arg) {
         if (ret == ESP_OK) {
             LOGI("Data sent via BLE notification successfully");
         } else if (ret == ESP_ERR_INVALID_STATE) {
-            LOGW("BLE client not connected or subscibed");
+            // LOGW("BLE client not connected or subscibed");
         } else {
             LOGW("Failed to send data notification: %s", esp_err_to_name(ret));
         }

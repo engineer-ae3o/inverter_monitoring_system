@@ -133,7 +133,7 @@ namespace adc {
         adc_channel_config_t gpio_to_adc_channel(gpio_num_t pin);
 
         template <typename T>
-        float driver::calculate_average(const std::array<T, MAX_BUFFER_SIZE>& samples);
+        float calculate_average(const std::array<T, MAX_BUFFER_SIZE>& samples);
         
         void process_adc_data(uint8_t* buffer, uint32_t length);
         float raw_to_voltage(uint32_t raw, adc_cali_handle_t cali_handle);

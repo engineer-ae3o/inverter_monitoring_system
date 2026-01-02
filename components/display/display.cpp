@@ -35,12 +35,12 @@ namespace display {
     // UI Screens
     static uint8_t current_screen_idx                       = 0;
     
-    // Display buffer for LVGL (32 lines worth of pixels)
-    static constexpr size_t DISP_BUF_SIZE                   = config::LCD_WIDTH * 32;
+    // Display buffer for LVGL (64 lines worth of pixels)
+    static constexpr size_t DISP_BUF_SIZE                   = config::LCD_WIDTH * 64;
     static constexpr uint16_t DISP_BOOTUP_SCREEN_TIME_MS    = 2500;
     
-    static std::array<uint16_t, DISP_BUF_SIZE> buf1         = {};
-    static std::array<uint16_t, DISP_BUF_SIZE> buf2         = {};
+    static std::array<uint16_t, DISP_BUF_SIZE> buf1{};
+    static std::array<uint16_t, DISP_BUF_SIZE> buf2{};
 
     static lv_display_t* display                            = nullptr;
     static esp_timer_handle_t lvgl_tick_timer               = nullptr;
@@ -99,10 +99,10 @@ namespace display {
             lvgl_tick_timer = nullptr;
         }
 
-        for (uint8_t i = 0; i < NUM_SCREENS; i++) {
-            if (screens[i]) {
-                lv_obj_del(screens[i]);
-                screens[i] = nullptr;
+        for (auto& screen : screens) {
+            if (screen) {
+                lv_obj_del(screen);
+                screen = nullptr;
             }
         }
 

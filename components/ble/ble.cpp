@@ -67,7 +67,7 @@ namespace ble {
 
     // Constants
     static constexpr uint8_t MIN_KEY_SIZE                            = 6;
-    static constexpr const char BLE_GAP_NAME[]                       = "Inverter-Monitor";
+    static constexpr const char BLE_GAP_NAME[]                       = "Inv-Monitor";
 
     // 16 bit UUIDs for all services and characteristics
     static constexpr ble_uuid16_t AHT_SERVICE_UUID                   = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x181A };
@@ -496,14 +496,9 @@ namespace ble {
 
     // Static helpers
     static void ble_advertise(void) {
-
-        if (is_advertising) {
-            BLE_LOGW("Device already advertising");
-            return;
-        }
-
-        struct ble_hs_adv_fields adv_fields = {};
-        struct ble_gap_adv_params adv_params = {};
+        
+        struct ble_hs_adv_fields adv_fields{};
+        struct ble_gap_adv_params adv_params{};
 
         // Flags: General discoverable and BLE only
         adv_fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
@@ -563,7 +558,7 @@ namespace ble {
             is_connected = false;
             is_subscribed = false;
             connection_handle = BLE_HS_CONN_HANDLE_NONE;
-
+            BLE_LOGI("Device disonnected");
             // Resume advertising
             ble_advertise();
             break;

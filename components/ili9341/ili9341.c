@@ -194,12 +194,12 @@ esp_err_t ili9341_init(const ili9341_config_t* config, ili9341_handle_t* handle)
     }
 
     // Create background task
-    BaseType_t ret = xTaskCreatePinnedToCore(ili9341_task, "ILI9341Task", (*handle)->config.task_stack_size, handle,
-                                             (*handle)->config.task_priority, (*handle)->task_handle, (*handle)->config.task_core);
-    if (ret != pdPASS) {
-     ILI_LOGE("Failed to create task");
+    BaseType_t rc = xTaskCreatePinnedToCore(ili9341_task, "ILI9341Task", (*handle)->config.task_stack_size, handle,
+                                             (*handle)->config.task_priority, &(*handle)->task_handle, (*handle)->config.task_core);
+    if (rc != pdPASS) {
+        ILI_LOGE("Failed to create task");
         xSemaphoreGive((*handle)->handle_mutex);
-        ili9341_cleanup_resources(*handle); // This already handles the cleanup of the gpio and spi resources
+        ili9341_cleanup_resources(*handle);
         return ESP_FAIL;
     }
 
@@ -209,11 +209,11 @@ esp_err_t ili9341_init(const ili9341_config_t* config, ili9341_handle_t* handle)
     // Send initialization sequence to ili9341
     ret = ili9341_init_sequence(*handle);
     if (ret != ESP_OK) {
-     ILI_LOGE("Init sequence failed: %s", esp_err_to_name(ret));
+        ILI_LOGE("Init sequence failed: %s", esp_err_to_name(ret));
         (*handle)->shutdown_requested = true;
         (*handle)->task_handle = NULL;
         xSemaphoreGive((*handle)->handle_mutex); // Release mutex before deletion
-        ili9341_cleanup_resources(*handle);  // This cleans up all the created resources and cleans up the spi and gpio resources that have been created
+        ili9341_cleanup_resources(*handle);
         return ret;
     }
     

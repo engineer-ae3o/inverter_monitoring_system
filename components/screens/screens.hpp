@@ -3,14 +3,15 @@
 
 
 #include "lvgl.h"
-
 #include "system.hpp"
+
+#include <array>
 
 
 namespace display {
     
     constexpr inline uint8_t NUM_SCREENS  = 8;
-    inline lv_obj_t* screens[NUM_SCREENS] = {};
+    inline std::array<lv_obj_t*, NUM_SCREENS> screens{};
 
     // Screens creation
     void create_screen_1(void);

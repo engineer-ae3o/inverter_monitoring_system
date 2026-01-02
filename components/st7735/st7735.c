@@ -80,7 +80,7 @@ typedef struct {
 
 } st7735_driver_t;
 
-static DMA_ATTR uint16_t pixels_buf[ST7735_MAX_WIDTH * 32] = {}; // DMA buffer: 32 lines of pixels
+static DMA_ATTR uint16_t pixels_buf[ST7735_MAX_WIDTH * 64] = {}; // DMA buffer: 64 lines of pixels
 static SemaphoreHandle_t dma_semphr = NULL;                      // Semaphore to indicare DMA buffer availability
 
 static TaskHandle_t deinit_task_handle = NULL;
@@ -188,7 +188,7 @@ esp_err_t st7735_init(const st7735_config_t* config) {
         .clock_speed_hz = driver.config.spi_clock_speed_hz,
         .mode = 0,
         .spics_io_num = driver.config.pin_cs,
-        .queue_size = ST7735_DEFAULT_QUEUE_SIZE,
+        .queue_size = driver.config.queue_size,
         .post_cb = spi_post_transfer_callback,
         .flags = 0
     };
