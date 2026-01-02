@@ -110,11 +110,6 @@ esp_err_t st7735_init(const st7735_config_t* config) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (driver.initialized) {
-        ST_LOGW("Already initialized");
-        return ESP_OK;
-    }
-
     // We create the mutex here because we need it to ensure thread safety
     driver.task_mutex = xSemaphoreCreateMutex();
     if (!driver.task_mutex) return ESP_FAIL;
@@ -122,6 +117,11 @@ esp_err_t st7735_init(const st7735_config_t* config) {
     if (xSemaphoreTake(driver.task_mutex, pdMS_TO_TICKS(ST7735_TIMEOUT_MS)) != pdTRUE) {
         ST_LOGE("Failed to take task_mutex during initialization");
         return ESP_ERR_TIMEOUT;
+    }
+
+    if (driver.initialized) {
+        ST_LOGW("Already initialized");
+        return ESP_OK;
     }
 
     ST_LOGI("Initializing ST7735 driver");

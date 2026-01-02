@@ -19,6 +19,7 @@
 #include "esp_log.h"
 
 #include <cstdio>
+#include <array>
 
 
 #define DEBUG 1
@@ -61,6 +62,7 @@ static const char* TAG = "MAIN";
 #define BLE_TASK_PROFILING                                  0
 
 using namespace config;
+using FILE_t = FILE;
 
 // Task handles
 static TaskHandle_t calc_runtime_task_handle = nullptr;
@@ -85,6 +87,7 @@ struct file_data_t {
     float current;
     float temperature;
     float humidity;
+    float battery_soc;
 };
 
 static esp_timer_handle_t display_led_timer_handle = nullptr;
@@ -199,7 +202,7 @@ static void queue_create(void) {
     }
 }
 
-QueueHandle_t get_data_queue(void) {
+QueueHandle_t& get_data_queue(void) {
     return final_data_queue;
 }
 
@@ -223,7 +226,7 @@ void lvgl_handler_task(void* arg) {
 
         TWDT_RESET_FROM_TASK(lvgl_handler_task);
 
-        if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(LVGL_TASK_PERIOD_MS)) == pdTRUE) {
+        if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) == pdTRUE) {
             lv_timer_handler();
             xSemaphoreGive(lvgl_display_mutex);
         } else {
@@ -257,7 +260,7 @@ void aht_task(void* arg) {
 
     TWDT_ADD_TASK(aht_task);
 
-    aht20_data_t data = {};
+    aht20_data_t data{};
     aht20_err_t ret = AHT_OK;
 
 #if AHT_TASK_PROFILING == 1
@@ -309,7 +312,7 @@ void log_task(void* arg) {
     // Open f_data_file for reading and writing in binary format
     // We first check if the file exists with rb+. If it exists, we proceed
     // NOTE: rb+ returns NULL if the file doesn't exist
-    FILE* f_data_file = fopen(DATA_FILE_NAME, "rb+");
+    FILE_t* f_data_file = fopen(DATA_FILE_NAME, "rb+");
     if (!f_data_file) {
         // If the file doesn't exist, we create it with wb+
         // We can't use wb+ initially because it zeros out our file whether or not it does exists,
@@ -320,27 +323,31 @@ void log_task(void* arg) {
 
     // Open f_meta_data_file for reading and writing in binary format
     // We first check if the file exists with rb+. If it exists, we proceed
-    FILE* f_meta_data_file = fopen(META_DATA_FILE_NAME, "rb+");
-    size_t data_file_index = 0;
+    FILE_t* f_meta_data_file = fopen(META_DATA_FILE_NAME, "rb+");
+    size_t data_file_idx = 0;
     if (!f_meta_data_file) {
         // If the file doesn't exist, we create it with wb+
         f_meta_data_file = fopen(META_DATA_FILE_NAME, "wb+");
         ASSERT(f_meta_data_file, "f_meta_data_file cannot be null");
-        // We then write data_file_index's initial 0 value to it
-        fwrite(&data_file_index, sizeof(data_file_index), 1, f_meta_data_file);
+        // We then write data_file_idx's initial 0 value to it
+        fwrite(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file);
     } else {
         // Since the file exists, we read from it and we bounds check against MAX_SAMPLES_TO_LOG
-        fread(&data_file_index, sizeof(data_file_index), 1, f_meta_data_file);
-        if (data_file_index >= MAX_SAMPLES_TO_LOG) {
-            data_file_index = 0;
+        fread(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file);
+        if (data_file_idx >= MAX_SAMPLES_TO_LOG) {
+            data_file_idx = 0;
         }
     }
 
     // Position f_data_file at the next write location (resume from where we left off on last boot)
-    fseek(f_data_file, data_file_index * sizeof(file_data_t), SEEK_SET);
+    fseek(f_data_file, data_file_idx * sizeof(file_data_t), SEEK_SET);
     
-    sys::data_t data = {};
-    file_data_t file_data = {};
+    sys::data_t data{};
+    file_data_t file_data{};
+
+    constexpr uint8_t NUM_OF_ITEMS_TO_STORE = 50;
+    std::array<file_data_t, NUM_OF_ITEMS_TO_STORE> data_buffer_temp{};
+    size_t temp_buffer_idx = 0;
 
 #if LOG_TASK_PROFILING == 1
     int64_t end[100] = {};
@@ -363,25 +370,35 @@ void log_task(void* arg) {
         file_data.current = data.load_current_drawn;
         file_data.temperature = data.inv_temp;
         file_data.humidity = data.inv_hmdt;
+        file_data.battery_soc = data.battery_percent;
 
-        // Write the received data immediately
-        fwrite(&file_data, sizeof(file_data_t), 1, f_data_file);
+        // Store the received data in a temporary buffer and increment index
+        data_buffer_temp[temp_buffer_idx++] = file_data;
+        
+        if (temp_buffer_idx >= NUM_OF_ITEMS_TO_STORE) {
+            // Write samples to flash after our temporary buffer is full
+            fwrite(data_buffer_temp.data(), sizeof(file_data_t), NUM_OF_ITEMS_TO_STORE, f_data_file);
+            temp_buffer_idx = 0;
 
-        data_file_index += 1;
-        // Wrap around to the beginning of the file if data_file_index gets to MAX_SAMPLES_TO_LOG
-        if (data_file_index >= MAX_SAMPLES_TO_LOG) {
-            data_file_index = 0;
+            // Increment data_file_idx by NUM_OF_ITEMS_TO_STORE because we stored that number of items
+            data_file_idx += NUM_OF_ITEMS_TO_STORE;
+
+            // Set f_meta_data_file back to the beginning of the file before writing to the file
+            // to overwrite the old data index currently present because we don't need to store
+            // different indices
+            rewind(f_meta_data_file);
+            fwrite(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file);
+
+            // No need to call `fflush()` as `fwrite()` writes to flash immediately
+        }
+
+        // Wrap around to the beginning of the file if data_file_idx gets to MAX_SAMPLES_TO_LOG
+        if (data_file_idx >= MAX_SAMPLES_TO_LOG) {
+            data_file_idx = 0;
             // Move f_data_file to the beginning of the file so we can overwrite the oldest data
             // since we have gotten to MAX_SAMPLES_TO_LOG 
             rewind(f_data_file);
         }
-
-        // Set f_meta_data_file back to the beginning of the file before writing to the file
-        // to overwrite the old data index currently present because we don't need it
-        rewind(f_meta_data_file);
-        fwrite(&data_file_index, sizeof(data_file_index), 1, f_meta_data_file);
-        
-        // No need to call `fflush()` as `fwrite()` writes to flash immediately
 
 #if LOG_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
@@ -410,7 +427,7 @@ void adc_task(void* arg) {
 
     TWDT_ADD_TASK(adc_task);
 
-    adc::data_t data = {};
+    adc::data_t data{};
     bool ret = false;
 
 #if ADC_TASK_PROFILING == 1
@@ -461,9 +478,9 @@ void runtime_calc_task(void* arg) {
 
     TWDT_ADD_TASK(runtime_calc_task);
 
-    aht20_data_t aht_data = {};
-    adc::data_t power_data = {};
-    sys::data_t final_data = {};
+    aht20_data_t aht_data{};
+    adc::data_t power_data{};
+    sys::data_t final_data{};
 
 #if CALC_TASK_PROFILING == 1
     int64_t end[100] = {};
@@ -496,7 +513,7 @@ void runtime_calc_task(void* arg) {
 
         if (xQueueSend(final_data_queue, &final_data, 0) != pdTRUE) {
             // Removing oldest data
-            sys::data_t dummy = {};
+            sys::data_t dummy{};
             xQueueReceive(final_data_queue, &dummy, 0);
             // Sending latest data again
             xQueueSend(final_data_queue, &final_data, 0);
@@ -668,7 +685,7 @@ void ble_task(void* arg) {
 
     LOGI("ble_task started");
     
-    sys::data_t data = {};
+    sys::data_t data{};
     esp_err_t ret = ESP_OK;
 
 #if BLE_TASK_PROFILING == 1

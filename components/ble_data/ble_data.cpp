@@ -5,12 +5,12 @@
 #include "system.hpp"
 
 
-extern QueueHandle_t get_data_queue(void);
+extern QueueHandle_t& get_data_queue(void);
 
 namespace ble {
     
-    static QueueHandle_t data_queue   = get_data_queue();
-    static sys::data_t data           = {};
+    static QueueHandle_t& data_queue  = get_data_queue();
+    static sys::data_t data{};
 
     // We don't have to check the return value of `xQueuePeek`
     // because we return the last cached data stored in data 
