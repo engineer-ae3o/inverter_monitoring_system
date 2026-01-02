@@ -19,6 +19,7 @@
 #include "esp_nimble_hci.h"
 
 #include <cstdint>
+#include <array>
 
 
 #define BLE_DEBUG 1
@@ -55,15 +56,78 @@ using os_mbuf_t = struct os_mbuf;
 
 
 namespace ble {
+    
+    // Connection context
+    struct connection_context_t {
+        bool is_advertising = false;
+        bool is_connected = false;
+        uint16_t connection_handle = 0;
+        uint8_t address_type = 0;
+    };
 
-    // Don't know what to put here lol
-    static uint8_t address_type                                      = 0;
-    static uint16_t connection_handle                                = 0;
+    static connection_context_t connection_context{};
+    
+    class chr_notify_t {
+    public:
+        enum class chr_t : uint8_t {
+            TEMPERATURE = 0,
+            HUMIDITY,
+            VOLTAGE,
+            CURRENT,
+            POWER,
+            BATT_SoC,
+            RUNTIME_S,
+            COUNT = 7
+        };
 
-    // Flags
-    static bool is_advertising                                       = false;
-    static bool is_connected                                         = false;
-    static bool is_subscribed                                        = false;
+        chr_notify_t() {
+            chr_notify_state.fill(false);
+        }
+
+        void set_chr_notify_state(chr_t chr, bool state = true) {
+            chr_notify_state[static_cast<size_t>(chr)] = state;
+        }
+
+        [[nodiscard]] bool get_chr_notify_state(chr_t chr) const {
+            return chr_notify_state[static_cast<size_t>(chr)];
+        }
+
+        void set_all_chr_notify_state(bool state = true) {
+            chr_notify_state.fill(state);
+        }
+
+        // If you are using a generic BLE app like the nRF Connect or some other app, it
+        // will expect data in the format int16_t and an exponent of -2, so we multiply
+        // by 100 and cast to int16_t. The app receives the bytes, divides by 100 and gets
+        // its data and does whatever with it. Also, if you are sending to a big endian system,
+        // swap the bytes before sending using `__builtin_bswap16()` if you are on gcc
+        template <typename T>
+        esp_err_t send_notification(chr_t chr, T val, uint16_t chr_handle, const char* name) {
+
+            int16_t data = static_cast<int16_t>(val * 100);
+            os_mbuf_t* om = ble_hs_mbuf_from_flat(&data, sizeof(data));
+
+            if (om && (chr_handle != 0)) {
+                int rc = ble_gatts_notify_custom(connection_handle, chr_handle, om);
+                if (rc == 0) {
+                    BLE_LOGI("%s notification sent successfully", name);
+                    return ESP_OK;
+                } else {
+                    BLE_LOGE("Failed to send %s notification: %d", name, rc);
+                    return ESP_FAIL;
+                }
+            } else {
+                BLE_LOGW("Invalid %s handle or mbuf allocation failed", name);
+                return ESP_FAIL;
+            }
+            return ESP_OK;
+        }
+        
+    private:
+        std::array<bool, static_cast<size_t>(chr_t::COUNT)> chr_notify_state;
+    };
+
+    static chr_notify_t chr_notify;
 
     // Device name
     static constexpr const char BLE_GAP_NAME[]                       = "Inv-Monitor";
@@ -83,17 +147,17 @@ namespace ble {
     static constexpr ble_uuid16_t RUNTIME_CHAR_UUID                  = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A1A };
 
     // Handles for all characteristics. Needed for notifications
-    static uint16_t temp_chr_handle                                  = 0;
-    static uint16_t hmdt_chr_handle                                  = 0;
-    static uint16_t voltage_chr_handle                               = 0;
-    static uint16_t current_chr_handle                               = 0;
-    static uint16_t power_chr_handle                                 = 0;
-    static uint16_t battery_soc_chr_handle                           = 0;
-    static uint16_t runtime_chr_handle                               = 0;
+    uint16_t temp_chr_handle                                         = 0;
+    uint16_t hmdt_chr_handle                                         = 0;
+    uint16_t voltage_chr_handle                                      = 0;
+    uint16_t current_chr_handle                                      = 0;
+    uint16_t power_chr_handle                                        = 0;
+    uint16_t battery_soc_chr_handle                                  = 0;
+    uint16_t runtime_chr_handle                                      = 0;
 
     // Forward declarations
-    static void ble_advertise(void);
-    static void fill_gatts_def(void);
+    static void ble_advertise();
+    static void fill_gatts_def();
     static int ble_event_handler(ble_gap_event* event, void* arg);
 
     // Callbacks for characteristics that get called when a client interacts with them
@@ -106,17 +170,17 @@ namespace ble {
     static int runtime_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg);
 
     // Array of services
-    static ble_gatt_svc_def_t gatt_svc[4] = {};
+    static ble_gatt_svc_def_t gatt_svc[4]{};
     static constexpr ble_uuid16_t gatt_svc_uuid[3] = { AHT_SERVICE_UUID, ADC_SERVICE_UUID, BATTERY_SERVICE_UUID };
 
     // Service for AHT data (temperature and humidity) characteristics
-    static ble_gatt_chr_def_t aht_chr[3] = {};
+    static ble_gatt_chr_def_t aht_chr[3]{};
 
     // Service for ADC data (voltage, current and power data) characteristics
-    static ble_gatt_chr_def_t adc_chr[4] = {};
+    static ble_gatt_chr_def_t adc_chr[4]{};
 
     // Service for battery state and runtime/charge time characteristics
-    static ble_gatt_chr_def_t batt_chr[3] = {};
+    static ble_gatt_chr_def_t batt_chr[3]{};
 
 
     // Public APIs
@@ -176,12 +240,21 @@ namespace ble {
         // Determines the best address_type type to use for automatic address_type type resolution
         // @note We don't start advertising immediately as that is up to the user
         ble_hs_cfg.sync_cb = []() {
-            ble_hs_id_infer_auto(1, &address_type);
+            int ret = ble_hs_util_ensure_addr(1);
+            if (ret != 0) BLE_LOGE("Failed to configure device with bluetooth address");
+            ret = ble_hs_id_infer_auto(1, &connection_context.address_type);
+            if (ret != 0) BLE_LOGE("Failed to determine best address type to use for automatic address type resolution");
+            uint8_t addr_val[6] = {};
+            ret = ble_hs_id_copy_addr(connection_context.address_type, addr_val, NULL);
+            if (ret == 0) {
+                BLE_LOGI("Device address = 0x%X 0x%X 0x%X 0x%X 0x%X 0x%X",
+                          addr_val[0], addr_val[1], addr_val[2], addr_val[3], addr_val[4], addr_val[5]);
+            }
         };
 
         // This is called when the host and controller get reset due to a fatal error
         ble_hs_cfg.reset_cb = [](int reason) {
-            BLE_LOGE("Fatal error: Host and controller reset. Reason: %d", reason);
+            BLE_LOGE("Fatal error: Host and controller reset. Reason = %d", reason);
         };
 
         // Sets flag for generating keys for bonding/pairing
@@ -203,9 +276,10 @@ namespace ble {
         ble_hs_cfg.sm_sc = 1;
 
         // This gets called when a persistence operation cannot be performed
-        ble_hs_cfg.store_status_cb = [](struct ble_store_status_event* event, void* arg) {
+        ble_hs_cfg.store_status_cb = [](ble_store_status_event* event, void* arg) {
 
             switch (event->event_code) {
+            // Event for overflows
             case BLE_STORE_EVENT_OVERFLOW:
                 switch (event->overflow.obj_type) {
                 case BLE_STORE_OBJ_TYPE_OUR_SEC:
@@ -218,13 +292,14 @@ namespace ble {
                 default:
                     return BLE_HS_EUNKNOWN;
                 }
-            
+            // Event in the case of an overflow happening
             case BLE_STORE_EVENT_FULL:
-                // Just proceed with the operation. If it results in an overflow,
-                // we'll delete a record when the overflow occurs.
+                BLE_LOGW("BLE store event likely to end in failure. Connection handle = %d, Object type = %d",
+                          event->full.conn_handle, event->full.obj_type);
                 return 0;
             
             default:
+                BLE_LOGW("Unknown BLE store status event occurred. Event code = %d", event->event_code);
                 return BLE_HS_EUNKNOWN;
             }
         };
@@ -273,6 +348,7 @@ namespace ble {
 
         // Start nimble freertos task
         nimble_port_freertos_init([](void* arg) {
+            BLE_LOGI("NimBLE task started");
             nimble_port_run();
         });
 
@@ -280,6 +356,11 @@ namespace ble {
     }
     
     esp_err_t deinit(void) {
+
+        connection_context.address_type = 0;
+        connection_context.connection_handle = 0;
+        connection_context.is_advertising = false;
+        connection_context.is_connected = false;
 
         // Stop nimble freertos task
         int rc = nimble_port_stop();
@@ -310,147 +391,55 @@ namespace ble {
         return ret;
     }
 
-    // @note
-    // If you are using a generic BLE app like the nRF Connect or some other app, it
-    // will expect data in the format int16_t and an exponent of -2, so we multiply
-    // by 100 and cast to int16_t. The app receives the bytes, divides by 100 and gets
-    // its data and does whatever with it. Also, if you are sending to a big endian system,
-    // swap the bytes before sending using `__builtin_bswap16()` if you are on gcc
     esp_err_t notify_data(const sys::data_t& data) {
 
-        if (!is_connected || !is_subscribed) {
-            // BLE_LOGW("No BLE client connected or device not subscribed");
+        if (!connection_context.is_connected) {
+            BLE_LOGW("No BLE client connected");
             return ESP_ERR_INVALID_STATE;
         }
 
-        os_mbuf_t* om = nullptr;
-        int ret = 0;
-        esp_err_t result = ESP_OK;
+        esp_err_t ret = ESP_OK;
 
-        // Temperature
-        int16_t temperature = static_cast<int16_t>(data.inv_temp * 100);
-        om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
-        if (om && temp_chr_handle) {
-            ret = ble_gatts_notify_custom(connection_handle, temp_chr_handle, om);
-            if (ret == 0) {
-                BLE_LOGI("Temperature sent as notification");
-            } else {
-                BLE_LOGE("Failed to send temperature: %d", ret);
-                result = ESP_FAIL;
-            }
-        } else {
-            BLE_LOGE("Invalid temperature handle or mbuf allocation failed");
-            result = ESP_FAIL;
+        if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::TEMPERATURE)) {
+            ret = chr_notify.send_notification(chr_notify_t::chr_t::TEMPERATURE, data.inv_temp, temp_chr_handle, "Temperature");
         }
 
-        // Humidity
-        int16_t humidity = static_cast<int16_t>(data.inv_hmdt * 100);
-        om = ble_hs_mbuf_from_flat(&humidity, sizeof(humidity));
-        if (om && hmdt_chr_handle) {
-            ret = ble_gatts_notify_custom(connection_handle, hmdt_chr_handle, om);
-            if (ret == 0) {
-                BLE_LOGI("Humidity sent as notification");
-            } else {
-                BLE_LOGE("Failed to send humidity: %d", ret);
-                result = ESP_FAIL;
-            }
-        } else {
-            BLE_LOGE("Invalid humidity handle or mbuf allocation failed");
-            result = ESP_FAIL;
+        if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::HUMIDITY)) {
+            ret = chr_notify.send_notification(chr_notify_t::chr_t::HUMIDITY, data.inv_hmdt, hmdt_chr_handle, "Humidity");
         }
 
-        // Voltage
-        int16_t voltage = static_cast<int16_t>(data.battery_voltage * 100);
-        om = ble_hs_mbuf_from_flat(&voltage, sizeof(voltage));
-        if (om && voltage_chr_handle) {
-            ret = ble_gatts_notify_custom(connection_handle, voltage_chr_handle, om);
-            if (ret == 0) {
-                BLE_LOGI("Voltage sent as notification");
-            } else {
-                BLE_LOGE("Failed to send voltage: %d", ret);
-                result = ESP_FAIL;
-            }
-        } else {
-            BLE_LOGE("Invalid voltage handle or mbuf allocation failed");
-            result = ESP_FAIL;
+        if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::VOLTAGE)) {
+            ret = chr_notify.send_notification(chr_notify_t::chr_t::VOLTAGE, data.battery_voltage, voltage_chr_handle, "Voltage");
         }
 
-        // Current
-        int16_t current = static_cast<int16_t>(data.load_current_drawn * 100);
-        om = ble_hs_mbuf_from_flat(&current, sizeof(current));
-        if (om && current_chr_handle) {
-            ret = ble_gatts_notify_custom(connection_handle, current_chr_handle, om);
-            if (ret == 0) {
-                BLE_LOGI("Current sent as notification");
-            } else {
-                BLE_LOGE("Failed to send current: %d", ret);
-                result = ESP_FAIL;
-            }
-        } else {
-            BLE_LOGE("Invalid current handle or mbuf allocation failed");
-            result = ESP_FAIL;
+        if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::CURRENT)) {
+            ret = chr_notify.send_notification(chr_notify_t::chr_t::CURRENT, data.load_current_drawn, current_chr_handle, "Current");
         }
 
-        // Power
-        int16_t power = static_cast<int16_t>(data.power_drawn * 100);
-        om = ble_hs_mbuf_from_flat(&power, sizeof(power));
-        if (om && power_chr_handle) {
-            ret = ble_gatts_notify_custom(connection_handle, power_chr_handle, om);
-            if (ret == 0) {
-                BLE_LOGI("Power sent as notification");
-            } else {
-                BLE_LOGE("Failed to send power: %d", ret);
-                result = ESP_FAIL;
-            }
-        } else {
-            BLE_LOGE("Invalid power handle or mbuf allocation failed");
-            result = ESP_FAIL;
+        if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::POWER)) {
+            ret = chr_notify.send_notification(chr_notify_t::chr_t::POWER, data.power_drawn, power_chr_handle, "Power");
         }
 
-        // Battery SoC
-        int16_t battery_soc = static_cast<int16_t > (data.battery_percent * 100);
-        om = ble_hs_mbuf_from_flat(&battery_soc, sizeof(battery_soc));
-        if (om && battery_soc_chr_handle) {
-            ret = ble_gatts_notify_custom(connection_handle, battery_soc_chr_handle, om);
-            if (ret == 0) {
-                BLE_LOGI("Battery SoC sent as notification");
-            } else {
-                BLE_LOGE("Failed to send battery SoC: %d", ret);
-                result = ESP_FAIL;
-            }
-        } else {
-            BLE_LOGE("Invalid battery SoC handle or mbuf allocation failed");
-            result = ESP_FAIL;
+        if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::BATT_SoC)) {
+            ret = chr_notify.send_notification(chr_notify_t::chr_t::BATT_SoC, data.battery_percent, battery_soc_chr_handle, "Battery SoC");
         }
 
-        // Runtime
-        int16_t runtime = static_cast<int16_t>(data.runtime_left_s * 100);
-        om = ble_hs_mbuf_from_flat(&runtime, sizeof(runtime));
-        if (om && runtime_chr_handle) {
-            ret = ble_gatts_notify_custom(connection_handle, runtime_chr_handle, om);
-            if (ret == 0) {
-                BLE_LOGI("Runtime sent as notification");
-            } else {
-                BLE_LOGE("Failed to send runtime: %d", ret);
-                result = ESP_FAIL;
-            }
-        } else {
-            BLE_LOGE("Invalid runtime handle or mbuf allocation failed");
-            result = ESP_FAIL;
+        if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::RUNTIME_S)) {
+            ret = chr_notify.send_notification(chr_notify_t::chr_t::RUNTIME_S, data.runtime_left_s, runtime_chr_handle, "Runtime");
         }
-
-        return result;
+        
+        return ret;
     }
 
     esp_err_t start(void) {
 
-        if (is_advertising) {
+        if (connection_context.is_advertising) {
             BLE_LOGW("Device already advertising");
             return ESP_ERR_INVALID_STATE;
         }
 
         ble_advertise();
-        if (!is_advertising) {
+        if (!connection_context.is_advertising) {
             BLE_LOGE("Failed to start BLE advertising");
             return ESP_FAIL;
         }
@@ -460,9 +449,9 @@ namespace ble {
         return ESP_OK;
     }
 
-    esp_err_t stop(void) {
+    esp_err_t stop() {
 
-        if (!is_advertising) {
+        if (!connection_context.is_advertising) {
             BLE_LOGW("Device not advertising");
             return ESP_ERR_INVALID_STATE;
         }
@@ -472,7 +461,7 @@ namespace ble {
             BLE_LOGE("Failed to stop advertising");
             return ESP_FAIL;
         }
-        is_advertising = false;
+        connection_context.is_advertising = false;
 
         BLE_LOGI("Advertising stopped");
 
@@ -480,7 +469,7 @@ namespace ble {
     }
 
     // Static helpers
-    static void ble_advertise(void) {
+    static void ble_advertise() {
         
         struct ble_hs_adv_fields adv_fields{};
         struct ble_gap_adv_params adv_params{};
@@ -518,13 +507,13 @@ namespace ble {
         adv_params.channel_map = 0;
 
         // Start BLE advertising
-        ret = ble_gap_adv_start(address_type, nullptr, BLE_HS_FOREVER, &adv_params, ble_event_handler, nullptr);
+        ret = ble_gap_adv_start(connection_context.address_type, nullptr, BLE_HS_FOREVER, &adv_params, ble_event_handler, nullptr);
         if (ret != 0) {
             BLE_LOGE("Failed to start BLE advertising: reason = %d", ret);
             return;
         }
         
-        is_advertising = true;
+        connection_context.is_advertising = true;
     }
 
     static int ble_event_handler(ble_gap_event* event, void* arg) {
@@ -532,10 +521,10 @@ namespace ble {
         switch (event->type) {
         case BLE_GAP_EVENT_CONNECT:
             if (event->connect.status == 0) {
-                is_connected = true;
+                connection_context.is_connected = true;
                 // Store connection handle to use for notifications
-                connection_handle = event->connect.conn_handle;
-                BLE_LOGI("Connection established");
+                connection_context.connection_handle = event->connect.conn_handle;
+                BLE_LOGI("Connection established. Connection handle = %u", event->connect.conn_handle);
             } else {
                 BLE_LOGE("Connection failed. Resuming advertising");
                 ble_advertise();
@@ -543,40 +532,56 @@ namespace ble {
             break;
 
         case BLE_GAP_EVENT_DISCONNECT:
-            is_connected = false;
-            is_subscribed = false;
-            connection_handle = BLE_HS_CONN_HANDLE_NONE;
+            connection_context.is_connected = false;
+            chr_notify.set_all_chr_notify_state(false);
+            connection_context.connection_handle = BLE_HS_CONN_HANDLE_NONE;
             BLE_LOGI("Device disonnected");
             // Resume advertising
             ble_advertise();
             break;
 
         case BLE_GAP_EVENT_SUBSCRIBE:
-            is_subscribed = true;
+            connection_context.is_advertising = true;
+            // TODO: Handle per characteristic subscription tracking
             BLE_LOGI("Device subscribed");
             break;
 
         case BLE_GAP_EVENT_ADV_COMPLETE:
-            is_advertising = false;
-            is_connected = false;
-            is_subscribed = false;
-            BLE_LOGI("Advertising complete. Reason: %d", event->adv_complete.reason);
+            connection_context.is_advertising = false;
+            connection_context.is_connected = false;
+            chr_notify.set_all_chr_notify_state(false);
+            connection_context.connection_handle = BLE_HS_CONN_HANDLE_NONE;
+            BLE_LOGI("Advertising complete. Reason: %d. Restarting advertising", event->adv_complete.reason);
+            ble_advertise();
             break;
 
         case BLE_GAP_EVENT_CONN_UPDATE:
-            BLE_LOGI("Connection parameters updated: Status = %d. Connection handle = %u",
-                     event->conn_update.status, event->conn_update.conn_handle);
+            BLE_LOGI("Connection parameters updated: Status = %d, Connection handle = %u",
+                      event->conn_update.status, event->conn_update.conn_handle);
             break;
 
         case BLE_GAP_EVENT_CONN_UPDATE_REQ:
-            BLE_LOGI("Connection parameters update requested. Accepting");
+            BLE_LOGI("Connection parameters update requested. Accepting. Connection handle = %u, Minimum interval = %u, Maximum interval = %u, Latency = %us, Supervision timeout = %u",
+                      event->conn_update_req.conn_handle, event->conn_update_req.peer_params->itvl_min,
+                      event->conn_update_req.peer_params->itvl_max, event->conn_update_req.peer_params->latency,
+                      event->conn_update_req.peer_params->supervision_timeout);
             break;
 
         case BLE_GAP_EVENT_PASSKEY_ACTION:
+            BLE_LOGI("BLE passkey action. Connection handle = %d. Action = %d",
+                      event->passkey.conn_handle, event->passkey.params.action);
+            if (event->passkey.params.action == BLE_SM_IOACT_NUMCMP) {
+                BLE_LOGI("Passkey to compare = %lu", event->passkey.params.numcmp);
+            }
             break;
 
         case BLE_GAP_EVENT_REPEAT_PAIRING:
-            break;
+            BLE_LOGI("BLE client already with a bond requesting pairing again. Connection handle = %d", event->repeat_pairing.conn_handle);
+            event->repeat_pairing.new_key_size = event->repeat_pairing.cur_key_size;
+            event->repeat_pairing.new_authenticated = 1;
+            event->repeat_pairing.new_sc = 1;
+            event->repeat_pairing.new_bonding = 1;
+            return BLE_GAP_REPEAT_PAIRING_RETRY;
 
         default:
             BLE_LOGW("Unknown event occured: %d", event->type);
@@ -585,7 +590,7 @@ namespace ble {
         return 0;
     }
 
-    static void fill_gatts_def(void) {
+    static void fill_gatts_def() {
 
         // Service for AHT data (temperature and humidity)
         // Temperature characteristics
@@ -686,8 +691,7 @@ namespace ble {
         switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t temperature = static_cast<int16_t>(get_temperature() * 100);
-            int ret = os_mbuf_append(ctxt->om, &temperature, sizeof(temperature));
-            return ret;
+            return os_mbuf_append(ctxt->om, &temperature, sizeof(temperature));
         }
 
         // Characteristics is read only
@@ -706,8 +710,7 @@ namespace ble {
         switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t humidity = static_cast<int16_t>(get_humidity() * 100);
-            int ret = os_mbuf_append(ctxt->om, &humidity, sizeof(humidity));
-            return ret;
+            return os_mbuf_append(ctxt->om, &humidity, sizeof(humidity));;
         }
 
         // Characteristics is read only
@@ -726,8 +729,7 @@ namespace ble {
         switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t voltage = static_cast<int16_t>(get_voltage() * 100);
-            int ret = os_mbuf_append(ctxt->om, &voltage, sizeof(voltage));
-            return ret;
+            return os_mbuf_append(ctxt->om, &voltage, sizeof(voltage));;
         }
 
         // Characteristics is read only
@@ -746,8 +748,7 @@ namespace ble {
         switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t current = static_cast<int16_t>(get_current() * 100);
-            int ret = os_mbuf_append(ctxt->om, &current, sizeof(current));
-            return ret;
+            return os_mbuf_append(ctxt->om, &current, sizeof(current));;
         }
 
         // Characteristics is read only
@@ -766,8 +767,7 @@ namespace ble {
         switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t power = static_cast<int16_t>(get_power() * 100);
-            int ret = os_mbuf_append(ctxt->om, &power, sizeof(power));
-            return ret;
+            return os_mbuf_append(ctxt->om, &power, sizeof(power));;
         }
 
         // Characteristics is read only
@@ -786,8 +786,7 @@ namespace ble {
         switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t battery_soc = static_cast<int16_t>(get_battery_soc() * 100);
-            int ret = os_mbuf_append(ctxt->om, &battery_soc, sizeof(battery_soc));
-            return ret;
+            return os_mbuf_append(ctxt->om, &battery_soc, sizeof(battery_soc));;
         }
 
         // Characteristics is read only
@@ -806,8 +805,7 @@ namespace ble {
         switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_READ_CHR: {
             int16_t runtime = static_cast<int16_t>(get_runtime() * 100);
-            int ret = os_mbuf_append(ctxt->om, &runtime, sizeof(runtime));
-            return ret;
+            return os_mbuf_append(ctxt->om, &runtime, sizeof(runtime));;
         }
 
         // Characteristics is read only
