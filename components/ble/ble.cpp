@@ -52,6 +52,7 @@ extern "C"{ void ble_store_config_init(void); }
 using ble_gatt_svc_def_t = struct ble_gatt_svc_def;
 using ble_gatt_chr_def_t = struct ble_gatt_chr_def;
 using ble_gatt_access_ctxt_t = struct ble_gatt_access_ctxt;
+using ble_gap_event_t = struct ble_gap_event;
 using os_mbuf_t = struct os_mbuf;
 
 
@@ -59,13 +60,33 @@ namespace ble {
     
     // Connection context
     struct connection_context_t {
-        bool is_advertising = false;
-        bool is_connected = false;
-        uint16_t connection_handle = 0;
-        uint8_t address_type = 0;
-    };
+        bool is_advertising;
+        bool is_connected;
+        uint8_t address_type;
+        uint16_t connection_handle;
+        // Handles for all characteristics. Needed for notifications
+        uint16_t temp_chr_handle;
+        uint16_t hmdt_chr_handle;
+        uint16_t voltage_chr_handle;
+        uint16_t current_chr_handle;
+        uint16_t power_chr_handle;
+        uint16_t battery_soc_chr_handle;
+        uint16_t runtime_chr_handle;
 
-    static connection_context_t connection_context{};
+        void clear_all() {
+            is_advertising = false;
+            is_connected = false;
+            address_type = 0;
+            connection_handle = 0;
+            temp_chr_handle = 0;
+            hmdt_chr_handle = 0;
+            voltage_chr_handle = 0;
+            current_chr_handle = 0;
+            power_chr_handle = 0;
+            battery_soc_chr_handle = 0;
+            runtime_chr_handle = 0;
+        }
+    };
     
     class chr_notify_t {
     public:
@@ -102,13 +123,13 @@ namespace ble {
         // its data and does whatever with it. Also, if you are sending to a big endian system,
         // swap the bytes before sending using `__builtin_bswap16()` if you are on gcc
         template <typename T>
-        esp_err_t send_notification(chr_t chr, T val, uint16_t chr_handle, const char* name) {
+        esp_err_t send_notification(T val, uint16_t chr_handle, const char* name) {
 
             int16_t data = static_cast<int16_t>(val * 100);
             os_mbuf_t* om = ble_hs_mbuf_from_flat(&data, sizeof(data));
 
             if (om && (chr_handle != 0)) {
-                int rc = ble_gatts_notify_custom(connection_handle, chr_handle, om);
+                int rc = ble_gatts_notify_custom(connection_context.connection_handle, chr_handle, om);
                 if (rc == 0) {
                     BLE_LOGI("%s notification sent successfully", name);
                     return ESP_OK;
@@ -120,14 +141,14 @@ namespace ble {
                 BLE_LOGW("Invalid %s handle or mbuf allocation failed", name);
                 return ESP_FAIL;
             }
-            return ESP_OK;
         }
         
     private:
-        std::array<bool, static_cast<size_t>(chr_t::COUNT)> chr_notify_state;
+        std::array<bool, static_cast<size_t>(chr_t::COUNT)> chr_notify_state{};
     };
 
-    static chr_notify_t chr_notify;
+    static connection_context_t connection_context{};
+    static chr_notify_t chr_notify{};
 
     // Device name
     static constexpr const char BLE_GAP_NAME[]                       = "Inv-Monitor";
@@ -146,19 +167,10 @@ namespace ble {
     static constexpr ble_uuid16_t SoC_CHAR_UUID                      = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A19 };
     static constexpr ble_uuid16_t RUNTIME_CHAR_UUID                  = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A1A };
 
-    // Handles for all characteristics. Needed for notifications
-    uint16_t temp_chr_handle                                         = 0;
-    uint16_t hmdt_chr_handle                                         = 0;
-    uint16_t voltage_chr_handle                                      = 0;
-    uint16_t current_chr_handle                                      = 0;
-    uint16_t power_chr_handle                                        = 0;
-    uint16_t battery_soc_chr_handle                                  = 0;
-    uint16_t runtime_chr_handle                                      = 0;
-
     // Forward declarations
     static void ble_advertise();
     static void fill_gatts_def();
-    static int ble_event_handler(ble_gap_event* event, void* arg);
+    static int ble_event_handler(ble_gap_event_t* event, void* arg);
 
     // Callbacks for characteristics that get called when a client interacts with them
     static int temperature_chr(uint16_t conn_handle, uint16_t attr_handle, ble_gatt_access_ctxt_t* ctxt, void* arg);
@@ -184,7 +196,7 @@ namespace ble {
 
 
     // Public APIs
-    esp_err_t init(void) {
+    esp_err_t init() {
 
         esp_err_t ret = ESP_OK;
 
@@ -276,7 +288,7 @@ namespace ble {
         ble_hs_cfg.sm_sc = 1;
 
         // This gets called when a persistence operation cannot be performed
-        ble_hs_cfg.store_status_cb = [](ble_store_status_event* event, void* arg) {
+        ble_hs_cfg.store_status_cb = [](struct ble_store_status_event* event, void* arg) {
 
             switch (event->event_code) {
             // Event for overflows
@@ -355,12 +367,9 @@ namespace ble {
         return ret;
     }
     
-    esp_err_t deinit(void) {
+    esp_err_t deinit() {
 
-        connection_context.address_type = 0;
-        connection_context.connection_handle = 0;
-        connection_context.is_advertising = false;
-        connection_context.is_connected = false;
+        connection_context.clear_all();
 
         // Stop nimble freertos task
         int rc = nimble_port_stop();
@@ -401,37 +410,58 @@ namespace ble {
         esp_err_t ret = ESP_OK;
 
         if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::TEMPERATURE)) {
-            ret = chr_notify.send_notification(chr_notify_t::chr_t::TEMPERATURE, data.inv_temp, temp_chr_handle, "Temperature");
+            ret = chr_notify.send_notification(data.inv_temp, connection_context.temp_chr_handle, "Temperature");
+            if (ret != ESP_OK) {
+                BLE_LOGE("Failed to send temperature notification");
+            }
         }
 
         if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::HUMIDITY)) {
-            ret = chr_notify.send_notification(chr_notify_t::chr_t::HUMIDITY, data.inv_hmdt, hmdt_chr_handle, "Humidity");
+            ret = chr_notify.send_notification(data.inv_hmdt, connection_context.hmdt_chr_handle, "Humidity");
+            if (ret != ESP_OK) {
+                BLE_LOGE("Failed to send humidity notification");
+            }
         }
 
         if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::VOLTAGE)) {
-            ret = chr_notify.send_notification(chr_notify_t::chr_t::VOLTAGE, data.battery_voltage, voltage_chr_handle, "Voltage");
+            ret = chr_notify.send_notification(data.battery_voltage, connection_context.voltage_chr_handle, "Voltage");
+            if (ret != ESP_OK) {
+                BLE_LOGE("Failed to send voltage notification");
+            }
         }
 
         if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::CURRENT)) {
-            ret = chr_notify.send_notification(chr_notify_t::chr_t::CURRENT, data.load_current_drawn, current_chr_handle, "Current");
+            ret = chr_notify.send_notification(data.load_current_drawn, connection_context.current_chr_handle, "Current");
+            if (ret != ESP_OK) {
+                BLE_LOGE("Failed to send current notification");
+            }
         }
 
         if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::POWER)) {
-            ret = chr_notify.send_notification(chr_notify_t::chr_t::POWER, data.power_drawn, power_chr_handle, "Power");
+            ret = chr_notify.send_notification(data.power_drawn, connection_context.power_chr_handle, "Power");
+            if (ret != ESP_OK) {
+                BLE_LOGE("Failed to send power notification");
+            }
         }
 
         if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::BATT_SoC)) {
-            ret = chr_notify.send_notification(chr_notify_t::chr_t::BATT_SoC, data.battery_percent, battery_soc_chr_handle, "Battery SoC");
+            ret = chr_notify.send_notification(data.battery_percent, connection_context.battery_soc_chr_handle, "Battery SoC");
+            if (ret != ESP_OK) {
+                BLE_LOGE("Failed to send battery soc notification");
+            }
         }
 
         if (chr_notify.get_chr_notify_state(chr_notify_t::chr_t::RUNTIME_S)) {
-            ret = chr_notify.send_notification(chr_notify_t::chr_t::RUNTIME_S, data.runtime_left_s, runtime_chr_handle, "Runtime");
+            ret = chr_notify.send_notification(data.runtime_left_s, connection_context.runtime_chr_handle, "Runtime");
+            if (ret != ESP_OK) {
+                BLE_LOGE("Failed to send runtime notification");
+            }
         }
         
         return ret;
     }
 
-    esp_err_t start(void) {
+    esp_err_t start() {
 
         if (connection_context.is_advertising) {
             BLE_LOGW("Device already advertising");
@@ -516,7 +546,7 @@ namespace ble {
         connection_context.is_advertising = true;
     }
 
-    static int ble_event_handler(ble_gap_event* event, void* arg) {
+    static int ble_event_handler(ble_gap_event_t* event, void* arg) {
         
         switch (event->type) {
         case BLE_GAP_EVENT_CONNECT:
@@ -541,9 +571,30 @@ namespace ble {
             break;
 
         case BLE_GAP_EVENT_SUBSCRIBE:
-            connection_context.is_advertising = true;
-            // TODO: Handle per characteristic subscription tracking
-            BLE_LOGI("Device subscribed");
+            if (event->subscribe.attr_handle == connection_context.temp_chr_handle) {
+                chr_notify.set_chr_notify_state(chr_notify_t::chr_t::TEMPERATURE);
+                BLE_LOGI("Client subscribed to temperature characteristic");
+            } else if (event->subscribe.attr_handle == connection_context.hmdt_chr_handle) {
+                chr_notify.set_chr_notify_state(chr_notify_t::chr_t::HUMIDITY);
+                BLE_LOGI("Client subscribed to humidity characteristic");
+            } else if (event->subscribe.attr_handle == connection_context.voltage_chr_handle) {
+                chr_notify.set_chr_notify_state(chr_notify_t::chr_t::VOLTAGE);
+                BLE_LOGI("Client subscribed to voltage characteristic");
+            } else if (event->subscribe.attr_handle == connection_context.current_chr_handle) {
+                chr_notify.set_chr_notify_state(chr_notify_t::chr_t::CURRENT);
+                BLE_LOGI("Client subscribed to current characteristic");
+            } else if (event->subscribe.attr_handle == connection_context.power_chr_handle) {
+                chr_notify.set_chr_notify_state(chr_notify_t::chr_t::POWER);
+                BLE_LOGI("Client subscribed to power characteristic");
+            } else if (event->subscribe.attr_handle == connection_context.battery_soc_chr_handle) {
+                chr_notify.set_chr_notify_state(chr_notify_t::chr_t::BATT_SoC);
+                BLE_LOGI("Client subscribed to battery soc characteristic");
+            } else if (event->subscribe.attr_handle == connection_context.runtime_chr_handle) {
+                chr_notify.set_chr_notify_state(chr_notify_t::chr_t::RUNTIME_S);
+                BLE_LOGI("Client subscribed to runtime characteristic");
+            } else {
+                BLE_LOGW("Client subsribed to unknown characteristic");
+            }
             break;
 
         case BLE_GAP_EVENT_ADV_COMPLETE:
@@ -600,7 +651,7 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .val_handle = &temp_chr_handle
+            .val_handle = &connection_context.temp_chr_handle
         };
         // Humidity characteristics
         aht_chr[1] = {
@@ -609,7 +660,7 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .val_handle = &hmdt_chr_handle
+            .val_handle = &connection_context.hmdt_chr_handle
         };
         // Characteristics array termination
         aht_chr[2] = {};
@@ -627,7 +678,7 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .val_handle = &voltage_chr_handle
+            .val_handle = &connection_context.voltage_chr_handle
         };
         // Current characteristics
         adc_chr[1] = {
@@ -636,7 +687,7 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .val_handle = &current_chr_handle
+            .val_handle = &connection_context.current_chr_handle
         };
         // Power characteristics
         adc_chr[2] = {
@@ -645,7 +696,7 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .val_handle = &power_chr_handle
+            .val_handle = &connection_context.power_chr_handle
         };
         // Characteristics array termination
         adc_chr[3] = {};
@@ -663,7 +714,7 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .val_handle = &battery_soc_chr_handle
+            .val_handle = &connection_context.battery_soc_chr_handle
         };
         // Runtime/Charge time characteristics
         batt_chr[1] = {
@@ -672,7 +723,7 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .val_handle = &runtime_chr_handle
+            .val_handle = &connection_context.runtime_chr_handle
         };
         // Characteristics array termination
         batt_chr[2] = {};

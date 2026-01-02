@@ -2,21 +2,23 @@
 #define _BLE_DATA_HPP_
 
 
+#include <cstdint>
+
 namespace ble {
 
-    float get_temperature(void);
+    float get_temperature();
 
-    float get_humidity(void);
+    float get_humidity();
 
-    float get_voltage(void);
+    float get_voltage();
 
-    float get_current(void);
+    float get_current();
 
-    float get_power(void);
+    float get_power();
 
-    float get_battery_soc(void);
+    float get_battery_soc();
 
-    float get_runtime(void);
+    uint64_t get_runtime();
 
 } // namespace ble
 

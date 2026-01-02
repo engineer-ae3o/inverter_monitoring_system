@@ -60,8 +60,8 @@ namespace config {
     // File data
     constexpr uint8_t NUM_OF_ITEMS_TO_STORE_TEMP                     = 50;
     constexpr inline uint16_t MAX_SAMPLES_TO_LOG                     = 50000;
-    constexpr inline const char DATA_FILE_NAME[32]                   = "/storage/file_data.log";
-    constexpr inline const char META_DATA_FILE_NAME[32]              = "/storage/file_meta_data.log";
+    constexpr inline const char DATA_FILE_NAME[]                     = "/storage/file_data.log";
+    constexpr inline const char META_DATA_FILE_NAME[]                = "/storage/file_meta_data.log";
 
     // LED brightness control
     constexpr inline uint32_t TIME_TO_LED_50_PERCENT_BRIGHTNESS_US   = 30 * 1000 * 1000;   // 30s
@@ -89,8 +89,7 @@ namespace config {
     constexpr inline float BATTERY_CAPACITY_AH                       = 35;   // It's 40Ah, but this is to take losses into account
 
 
-    static_assert((MAX_SAMPLES_TO_LOG % NUM_OF_ITEMS_TO_STORE_TEMP) == 0, "MAX_SAMPLES_TO_LOG must be evenly divisible by\
-                                                                           NUM_OF_ITEMS_TO_STORE_TEMP");
+    static_assert((MAX_SAMPLES_TO_LOG % NUM_OF_ITEMS_TO_STORE_TEMP) == 0, "MAX_SAMPLES_TO_LOG must be evenly divisible by NUM_OF_ITEMS_TO_STORE_TEMP");
 
 }
 

@@ -5,7 +5,7 @@
 #include "system.hpp"
 
 
-extern QueueHandle_t& get_data_queue(void);
+extern QueueHandle_t& get_data_queue();
 
 namespace ble {
     
@@ -14,37 +14,37 @@ namespace ble {
 
     // We don't have to check the return value of `xQueuePeek`
     // because we return the last cached data stored in data 
-    float get_temperature(void) {
+    float get_temperature() {
         xQueuePeek(data_queue, &data, 0);
         return data.inv_temp;
     }
 
-    float get_humidity(void) {
+    float get_humidity() {
         xQueuePeek(data_queue, &data, 0);
         return data.inv_hmdt;
     }
 
-    float get_voltage(void) {
+    float get_voltage() {
         xQueuePeek(data_queue, &data, 0);
         return data.battery_voltage;
     }
 
-    float get_current(void) {
+    float get_current() {
         xQueuePeek(data_queue, &data, 0);
         return data.load_current_drawn;
     }
 
-    float get_power(void) {
+    float get_power() {
         xQueuePeek(data_queue, &data, 0);
         return data.power_drawn;
     }
 
-    float get_battery_soc(void) {
+    float get_battery_soc() {
         xQueuePeek(data_queue, &data, 0);
         return data.battery_percent;
     }
 
-    float get_runtime(void) {
+    uint64_t get_runtime() {
         xQueuePeek(data_queue, &data, 0);
         return data.runtime_left_s;
     }

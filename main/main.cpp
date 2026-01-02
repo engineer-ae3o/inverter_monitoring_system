@@ -94,7 +94,7 @@ static esp_timer_handle_t display_led_timer_handle = nullptr;
 
 static adc::driver power;
 
-static void init_all(void) {
+static void init_all() {
 
     // AHT20 Initialization
     aht20_err_t ret = aht20_init(AHT_SDA_PIN, AHT_SCL_PIN);
@@ -181,7 +181,7 @@ static void init_all(void) {
     LOGI("Initialization Complete");
 }
 
-static void queue_create(void) {
+static void queue_create() {
 
     aht_queue = xQueueCreate(1, sizeof(aht20_data_t));
     if (!aht_queue) {
@@ -202,7 +202,7 @@ static void queue_create(void) {
     }
 }
 
-QueueHandle_t& get_data_queue(void) {
+QueueHandle_t& get_data_queue() {
     return final_data_queue;
 }
 
