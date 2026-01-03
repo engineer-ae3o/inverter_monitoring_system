@@ -345,8 +345,7 @@ void log_task(void* arg) {
     sys::data_t data{};
     file_data_t file_data{};
 
-    constexpr uint8_t NUM_OF_ITEMS_TO_STORE = 50;
-    std::array<file_data_t, NUM_OF_ITEMS_TO_STORE> data_buffer_temp{};
+    std::array<file_data_t, NUM_OF_ITEMS_TO_STORE_TEMP> data_buffer_temp{};
     size_t temp_buffer_idx = 0;
 
 #if LOG_TASK_PROFILING == 1
@@ -366,26 +365,25 @@ void log_task(void* arg) {
             continue;
         }
 
-        file_data.voltage = data.battery_voltage;
-        file_data.current = data.load_current_drawn;
-        file_data.temperature = data.inv_temp;
-        file_data.humidity = data.inv_hmdt;
-        file_data.battery_soc = data.battery_percent;
+        file_data.voltage         = data.battery_voltage;
+        file_data.current         = data.load_current_drawn;
+        file_data.temperature     = data.inv_temp;
+        file_data.humidity        = data.inv_hmdt;
+        file_data.battery_soc     = data.battery_percent;
 
         // Store the received data in a temporary buffer and increment index
         data_buffer_temp[temp_buffer_idx++] = file_data;
         
-        if (temp_buffer_idx >= NUM_OF_ITEMS_TO_STORE) {
+        if (temp_buffer_idx >= NUM_OF_ITEMS_TO_STORE_TEMP) {
             // Write samples to flash after our temporary buffer is full
-            fwrite(data_buffer_temp.data(), sizeof(file_data_t), NUM_OF_ITEMS_TO_STORE, f_data_file);
+            fwrite(data_buffer_temp.data(), sizeof(file_data_t), NUM_OF_ITEMS_TO_STORE_TEMP, f_data_file);
             temp_buffer_idx = 0;
 
-            // Increment data_file_idx by NUM_OF_ITEMS_TO_STORE because we stored that number of items
-            data_file_idx += NUM_OF_ITEMS_TO_STORE;
+            // Increment data_file_idx by NUM_OF_ITEMS_TO_STORE_TEMP because we stored that number of items
+            data_file_idx += NUM_OF_ITEMS_TO_STORE_TEMP;
 
             // Set f_meta_data_file back to the beginning of the file before writing to the file
-            // to overwrite the old data index currently present because we don't need to store
-            // different indices
+            // to overwrite the old data index present because we don't need to store different indices
             rewind(f_meta_data_file);
             fwrite(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file);
 
@@ -707,11 +705,11 @@ void ble_task(void* arg) {
         ret = ble::notify_data(data);
         if (ret == ESP_OK) {
             LOGI("Data sent via BLE notification successfully");
-        } else if (ret == ESP_ERR_INVALID_STATE) {
-            // LOGW("BLE client not connected or subscibed");
+        } /* else if (ret == ESP_ERR_INVALID_STATE) {
+            LOGW("BLE client not connected or subscibed");
         } else {
             LOGW("Failed to send data notification: %s", esp_err_to_name(ret));
-        }
+        } */
 
 #if BLE_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;

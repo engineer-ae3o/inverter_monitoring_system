@@ -65,8 +65,7 @@ namespace ble {
     static bool is_connected                                         = false;
     static bool is_subscribed                                        = false;
 
-    // Constants
-    static constexpr uint8_t MIN_KEY_SIZE                            = 6;
+    // Device name
     static constexpr const char BLE_GAP_NAME[]                       = "Inv-Monitor";
 
     // 16 bit UUIDs for all services and characteristics
@@ -145,36 +144,11 @@ namespace ble {
             return ret;
         }
 
-        // Initialize the VHCI transport layer between nimble's host layer and the ESP32's controller
-        ret = esp_nimble_hci_init();
-        if (ret != ESP_OK) {
-            BLE_LOGE("Failed to initialize VHCI transport layer: %s", esp_err_to_name(ret));
-            return ret;
-        }
-
-        // GAP settings
-        // Set GAP device name
-        int rc = ble_svc_gap_device_name_set(BLE_GAP_NAME);
-        if (rc != 0) {
-            BLE_LOGE("Failed to set device GAP name");
-            return ESP_FAIL;
-        }
-
-        // Set GAP appearance
-        rc = ble_svc_gap_device_appearance_set(0);
-        if (rc != 0) {
-            BLE_LOGE("Failed to set device GAP appearance");
-            return ESP_FAIL;
-        }
-
-        // Initialize GAP services
-        ble_svc_gap_init();
-
         // BLE Host settings
         // Called when a GATTS descriptor, service or characteristics is registered
         ble_hs_cfg.gatts_register_cb = [](struct ble_gatt_register_ctxt* ctxt, void* arg) {
 
-            char buf[64] = {};
+            char buf[64]{};
 
             switch (ctxt->op) {
             case BLE_GATT_REGISTER_OP_SVC:
@@ -246,7 +220,7 @@ namespace ble {
                 }
             
             case BLE_STORE_EVENT_FULL:
-                // Just proceed with the operation.  If it results in an overflow,
+                // Just proceed with the operation. If it results in an overflow,
                 // we'll delete a record when the overflow occurs.
                 return 0;
             
@@ -257,8 +231,29 @@ namespace ble {
 
         // Initialize NVS backed persistent storage for bonds
         ble_store_config_init();
-        
+
+        // GAP settings
+        // Set GAP device name
+        int rc = ble_svc_gap_device_name_set(BLE_GAP_NAME);
+        if (rc != 0) {
+            BLE_LOGE("Failed to set device GAP name");
+            return ESP_FAIL;
+        }
+
+        // Set GAP appearance
+        rc = ble_svc_gap_device_appearance_set(0);
+        if (rc != 0) {
+            BLE_LOGE("Failed to set device GAP appearance");
+            return ESP_FAIL;
+        }
+
+        // Initialize GAP services
+        ble_svc_gap_init();
+
         // GATT settings
+        // Initialize GATT server
+        ble_svc_gatt_init();
+
         // Fill service struct definitions
         fill_gatts_def();
 
@@ -275,9 +270,6 @@ namespace ble {
             BLE_LOGE("Failed to queue service definitions for registration");
             return ESP_FAIL;
         }
-
-        // Initialize GATT server
-        ble_svc_gatt_init();
 
         // Start nimble freertos task
         nimble_port_freertos_init([](void* arg) {
@@ -306,13 +298,6 @@ namespace ble {
             return ret;
         }
 
-        // Deinitialize the VHCI transport layer between nimble's host layer and the ESP32's controller
-        ret = esp_nimble_hci_deinit();
-        if (ret != ESP_OK) {
-            BLE_LOGE("Failed to deinitialize VHCI transport layer: %s", esp_err_to_name(ret));
-            return ret;
-        }
-
 #if DEINIT_NVS_FROM_BLE_DEINIT == 1
         // Deinitialize NVS storage partition
         ret = nvs_flash_deinit();
@@ -334,7 +319,7 @@ namespace ble {
     esp_err_t notify_data(const sys::data_t& data) {
 
         if (!is_connected || !is_subscribed) {
-            BLE_LOGW("No BLE client connected or device not subscribed");
+            // BLE_LOGW("No BLE client connected or device not subscribed");
             return ESP_ERR_INVALID_STATE;
         }
 
@@ -525,9 +510,12 @@ namespace ble {
             return;
         }
         
-        // Set advertising flags: connectable and general discoverable
+        // Set advertising flags: undirected connectable and general discoverable
         adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
         adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
+        adv_params.itvl_min = 160; // 100ms - intervals of 0.625ms
+        adv_params.itvl_max = 800; // 500ms - intervals of 0.625ms
+        adv_params.channel_map = 0;
 
         // Start BLE advertising
         ret = ble_gap_adv_start(address_type, nullptr, BLE_HS_FOREVER, &adv_params, ble_event_handler, nullptr);
@@ -575,6 +563,21 @@ namespace ble {
             BLE_LOGI("Advertising complete. Reason: %d", event->adv_complete.reason);
             break;
 
+        case BLE_GAP_EVENT_CONN_UPDATE:
+            BLE_LOGI("Connection parameters updated: Status = %d. Connection handle = %u",
+                     event->conn_update.status, event->conn_update.conn_handle);
+            break;
+
+        case BLE_GAP_EVENT_CONN_UPDATE_REQ:
+            BLE_LOGI("Connection parameters update requested. Accepting");
+            break;
+
+        case BLE_GAP_EVENT_PASSKEY_ACTION:
+            break;
+
+        case BLE_GAP_EVENT_REPEAT_PAIRING:
+            break;
+
         default:
             BLE_LOGW("Unknown event occured: %d", event->type);
             break;
@@ -592,7 +595,6 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE,
             .val_handle = &temp_chr_handle
         };
         // Humidity characteristics
@@ -602,7 +604,6 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE,
             .val_handle = &hmdt_chr_handle
         };
         // Characteristics array termination
@@ -621,7 +622,6 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE,
             .val_handle = &voltage_chr_handle
         };
         // Current characteristics
@@ -631,7 +631,6 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE,
             .val_handle = &current_chr_handle
         };
         // Power characteristics
@@ -641,7 +640,6 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE,
             .val_handle = &power_chr_handle
         };
         // Characteristics array termination
@@ -660,7 +658,6 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE,
             .val_handle = &battery_soc_chr_handle
         };
         // Runtime/Charge time characteristics
@@ -670,7 +667,6 @@ namespace ble {
             .arg = nullptr,
             .descriptors = nullptr,
             .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-            .min_key_size = MIN_KEY_SIZE,
             .val_handle = &runtime_chr_handle
         };
         // Characteristics array termination

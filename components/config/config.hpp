@@ -29,7 +29,7 @@ namespace config {
 
     constexpr inline uint16_t LOG_TASK_STACK_SIZE                    = 4 * 1024;
     constexpr inline uint16_t LOG_TASK_PRIORITY                      = 2;
-    constexpr inline uint16_t LOG_TASK_PERIOD_MS                     = 30 * 1000; // 30s
+    constexpr inline uint16_t LOG_TASK_PERIOD_MS                     = 10 * 1000; // 10s
 
     constexpr inline uint16_t BLE_TASK_STACK_SIZE                    = 4 * 1024;
     constexpr inline uint16_t BLE_TASK_PRIORITY                      = 2;
@@ -58,6 +58,7 @@ namespace config {
     constexpr inline uint32_t BUTTON_LONG_PRESS_US                   = 2 * 1000 * 1000; // 2s
 
     // File data
+    constexpr uint8_t NUM_OF_ITEMS_TO_STORE_TEMP                     = 50;
     constexpr inline uint16_t MAX_SAMPLES_TO_LOG                     = 50000;
     constexpr inline const char DATA_FILE_NAME[32]                   = "/storage/file_data.log";
     constexpr inline const char META_DATA_FILE_NAME[32]              = "/storage/file_meta_data.log";
@@ -86,6 +87,11 @@ namespace config {
     constexpr inline float BATTERY_RECHARGING_THRESHOLD              = -1.5;
     constexpr inline float BATTERY_DISCHARGING_THRESHOLD             = INVERTER_ACTIVE_THRESHOLD;
     constexpr inline float BATTERY_CAPACITY_AH                       = 35;   // It's 40Ah, but this is to take losses into account
+
+
+    static_assert((MAX_SAMPLES_TO_LOG % NUM_OF_ITEMS_TO_STORE_TEMP) == 0, "MAX_SAMPLES_TO_LOG must be evenly divisible by\
+                                                                           NUM_OF_ITEMS_TO_STORE_TEMP");
+
 }
 
 
