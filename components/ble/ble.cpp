@@ -56,10 +56,6 @@ using ble_gap_event_t = struct ble_gap_event;
 using os_mbuf_t = struct os_mbuf;
 
 
-struct ble_hs_cfg;
-struct ble_gatt_register_ctxt;
-
-
 namespace ble {
     
     // Connection context
