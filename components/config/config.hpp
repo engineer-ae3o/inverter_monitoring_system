@@ -49,8 +49,8 @@ namespace config {
     constexpr inline gpio_num_t RST_PIN                              = GPIO_NUM_21;
     constexpr inline gpio_num_t LED_PIN                              = GPIO_NUM_18;
     
-    constexpr inline gpio_num_t BUTTON_PREV_PIN                      = GPIO_NUM_25;
-    constexpr inline gpio_num_t BUTTON_NEXT_PIN                      = GPIO_NUM_26;
+    constexpr inline gpio_num_t BUTTON_PREV_PIN                      = GPIO_NUM_26;
+    constexpr inline gpio_num_t BUTTON_NEXT_PIN                      = GPIO_NUM_25;
     constexpr inline gpio_num_t BLE_PIN                              = GPIO_NUM_23;
     
     // Button specification
@@ -73,7 +73,7 @@ namespace config {
     constexpr inline uint16_t LCD_HEIGHT                             = 160;
     constexpr inline uint16_t LCD_ROTATION                           = 4;
     constexpr inline uint16_t LCD_SPI_MAX_RETRIES                    = 4;
-    constexpr inline uint32_t SPI_CLK_SPEED                          = 26700000; // 26.7MHz
+    constexpr inline uint32_t SPI_CLK_SPEED                          = 40 * 1000 * 1000; // 40MHz
     constexpr inline spi_host_device_t SPI_LCD_HOST                  = SPI2_HOST;
     
     // Queue parameters
