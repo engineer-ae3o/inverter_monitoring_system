@@ -64,7 +64,7 @@ namespace display {
 
         lv_display_set_flush_cb(display, disp_flush_cb);
         
-        const esp_timer_create_args_t timer_args = {
+        constexpr esp_timer_create_args_t timer_args = {
             .callback = [](void* arg) { lv_tick_inc(1); },
             .arg = nullptr,
             .dispatch_method = ESP_TIMER_TASK,
@@ -126,11 +126,11 @@ namespace display {
 
         lv_obj_t* created_img = lv_img_create(bootup_scr);
         lv_img_set_src(created_img, &vhorde_logo);
-        lv_obj_align(created_img, LV_ALIGN_TOP_MID, 0, 16);
+        lv_obj_align(created_img, LV_ALIGN_TOP_MID, 0, 64);
 
         lv_scr_load(bootup_scr);
 
-        create_animated_loading_bar(bootup_scr, 100, 25, DISP_BOOTUP_SCREEN_TIME_MS);
+        create_animated_loading_bar(bootup_scr, 180, 35, DISP_BOOTUP_SCREEN_TIME_MS);
 
         DISP_LOGI("Done loading bootup screen");
     }
@@ -240,12 +240,12 @@ namespace display {
 
         lv_obj_set_size(loading_bar, w, h);
         lv_bar_set_range(loading_bar, 0, 100);
-        lv_obj_align(loading_bar, LV_ALIGN_TOP_MID, 0, 95);
+        lv_obj_align(loading_bar, LV_ALIGN_TOP_MID, 0, 300);
         lv_bar_set_value(loading_bar, 0, LV_ANIM_ON);
 
         lv_scr_load(parent);
 
-        lv_anim_t bar_anim = {};
+        lv_anim_t bar_anim{};
 
         lv_anim_init(&bar_anim);
         lv_anim_set_var(&bar_anim, loading_bar);

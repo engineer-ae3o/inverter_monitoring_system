@@ -21,7 +21,7 @@
 #include <cstdint>
 
 
-#define BLE_DEBUG 1
+#define BLE_DEBUG 0
 
 #if BLE_DEBUG == 1
 static const char* TAG = "BLE";
