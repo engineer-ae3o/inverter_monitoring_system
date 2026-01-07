@@ -1,9 +1,9 @@
 #include "lvgl.h"
 
 #include "display.hpp"
-#include "st7735.h"
+#include "ili9341.h"
 #include "colors.hpp"
-#include "vhorde_logo.h"
+#include "vhorde_logo.hpp"
 #include "config.hpp"
 #include "screens.hpp"
 #include "alert.hpp"
@@ -35,8 +35,8 @@ namespace display {
     // UI Screens
     static uint8_t current_screen_idx                       = 0;
     
-    // Display buffer for LVGL (64 lines worth of pixels)
-    static constexpr size_t DISP_BUF_SIZE                   = config::LCD_WIDTH * 64;
+    // Display buffer for LVGL (36 lines worth of pixels)
+    static constexpr size_t DISP_BUF_SIZE                   = config::LCD_WIDTH * 36;
     static constexpr uint16_t DISP_BOOTUP_SCREEN_TIME_MS    = 2500;
     
     static std::array<uint16_t, DISP_BUF_SIZE> buf1{};
@@ -44,6 +44,7 @@ namespace display {
 
     static lv_display_t* display                            = nullptr;
     static esp_timer_handle_t lvgl_tick_timer               = nullptr;
+    static ili9341_handle_t display_handle                  = nullptr;
     
     // Forward declarations
     static void disp_flush_cb(lv_display_t* display, const lv_area_t* area, uint8_t* px_map);
@@ -51,7 +52,7 @@ namespace display {
     
     
     // Public functions
-    esp_err_t init(void) {
+    esp_err_t init(const ili9341_handle_t& handle) {
 
         DISP_LOGI("Initializing display interface");
 
@@ -62,7 +63,7 @@ namespace display {
         lv_display_set_buffers(display, buf1.data(), buf2.data(), sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
 
         lv_display_set_flush_cb(display, disp_flush_cb);
-
+        
         const esp_timer_create_args_t timer_args = {
             .callback = [](void* arg) { lv_tick_inc(1); },
             .arg = nullptr,
@@ -83,13 +84,15 @@ namespace display {
             esp_timer_delete(lvgl_tick_timer);
             return ret;
         }
+
+        display_handle = handle;
         
         DISP_LOGI("Display interface initialized successfully");
 
         return ESP_OK;
     }
     
-    void deinit(void) {
+    void deinit() {
 
         DISP_LOGI("Deinitializing display interface");
 
@@ -114,7 +117,7 @@ namespace display {
         DISP_LOGI("Display interface deinitialized");
     }
 
-    void bootup_screen(void) {
+    void bootup_screen() {
 
         DISP_LOGI("Loading bootup screen");
 
@@ -132,7 +135,7 @@ namespace display {
         DISP_LOGI("Done loading bootup screen");
     }
     
-    void create_ui(void) {
+    void create_ui() {
 
         DISP_LOGI("Creating UI");
 
@@ -189,14 +192,14 @@ namespace display {
         }
     }
 
-    void next_screen(void) {
+    void next_screen() {
         current_screen_idx = (current_screen_idx + 1) % NUM_SCREENS;
         lv_scr_load(screens[current_screen_idx]);
 
         DISP_LOGI("Switched to screen %d", current_screen_idx);
     }
 
-    void prev_screen(void) {
+    void prev_screen() {
         if (current_screen_idx == 0) {
             current_screen_idx = NUM_SCREENS - 1;
         } else {
@@ -216,7 +219,7 @@ namespace display {
 
         auto px_data = reinterpret_cast<uint16_t*>(px_map);
 
-        esp_err_t ret = st7735_flush(area->x1, area->y1, area->x2, area->y2, px_data, pixel_count, 
+        esp_err_t ret = ili9341_flush(area->x1, area->y1, area->x2, area->y2, px_data, pixel_count, 
             [](void *user_data, esp_err_t ret) {
                 auto display = static_cast<lv_display_t*>(user_data);
                 lv_disp_flush_ready(display);
@@ -225,7 +228,7 @@ namespace display {
                     DISP_LOGW("Flush completed with error: %s", esp_err_to_name(ret));
                 }
             },
-        display);
+        display, display_handle);
         if (ret != ESP_OK) {
             DISP_LOGE("Flush failed: %s", esp_err_to_name(ret));
         }

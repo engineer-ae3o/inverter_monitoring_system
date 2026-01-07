@@ -5,9 +5,14 @@
 #include "system.hpp"
 
 
-extern QueueHandle_t& get_data_queue();
+// extern QueueHandle_t& get_data_queue();
 
 namespace ble {
+
+    QueueHandle_t& get_data_queue() {
+        static QueueHandle_t handle = xQueueCreate(5, 5 * sizeof(int));
+        return handle;
+    }
     
     static QueueHandle_t& data_queue  = get_data_queue();
     static sys::data_t data{};

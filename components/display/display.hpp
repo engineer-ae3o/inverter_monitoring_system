@@ -5,6 +5,7 @@
 #include "lvgl.h"
 
 #include "system.hpp"
+#include "ili9341.h"
 
 #include <cstdint>
 
@@ -14,26 +15,28 @@ namespace display {
     /**
      * @brief Initializes LVGL and the display interface
      * 
+     * @param[in] handle Handle to the current instance of the driver being used
+     * 
      * @return ESP_OK on sucess, error code otherwise
      */
-    esp_err_t init(void);
+    esp_err_t init(const ili9341_handle_t& handle);
     
     /**
      * @brief Deinitializes the display interface
      */
-    void deinit(void);
+    void deinit();
 
     /**
      * @brief Displays the bootup screen
      * 
      * @note Must be called once after init and before calling any other function in this header
      */
-    void bootup_screen(void);
+    void bootup_screen();
     
     /**
      * @brief This creates and displays all UI screens
      */
-    void create_ui(void);
+    void create_ui();
 
     /**
      * @brief This updates all UI screens with data received
@@ -45,12 +48,12 @@ namespace display {
     /**
      * @brief Switch to next screen
      */
-    void next_screen(void);
+    void next_screen();
 
     /**
      * @brief Switch to previous screen
      */
-    void prev_screen(void);
+    void prev_screen();
 
 } // namespace display
 

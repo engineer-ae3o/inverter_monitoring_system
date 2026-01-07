@@ -4,7 +4,7 @@
 
 namespace display {
 
-    // Screen 1: Battery Focus
+    // Screen 1: Battery
     static lv_obj_t* arc_battery                            = nullptr;
     static lv_obj_t* label_batt_voltage_large               = nullptr;
     static lv_obj_t* label_batt_percent_large               = nullptr;
@@ -35,7 +35,7 @@ namespace display {
     static lv_obj_t* label_batt_status_s4                   = nullptr;
     static lv_obj_t* label_inv_status_s4                    = nullptr;
 
-    void create_screen_1(void) {
+    void create_screen_1() {
 
         screens[0] = lv_obj_create(nullptr);
         lv_obj_set_style_bg_color(screens[0], lv_color_hex(color::BLACK), 0);
@@ -76,7 +76,7 @@ namespace display {
         lv_obj_align(label_runtime_s1, LV_ALIGN_TOP_LEFT, 5, 145);
     }
 
-    void create_screen_2(void) {
+    void create_screen_2() {
 
         screens[1] = lv_obj_create(nullptr);
         lv_obj_set_style_bg_color(screens[1], lv_color_hex(color::BLACK), 0);
@@ -126,7 +126,7 @@ namespace display {
         lv_obj_align(label_inv_status_s2, LV_ALIGN_TOP_LEFT, 5, 125);
     }
 
-    void create_screen_3(void) {
+    void create_screen_3() {
 
         screens[2] = lv_obj_create(nullptr);
         lv_obj_set_style_bg_color(screens[2], lv_color_hex(color::BLACK), 0);
@@ -167,7 +167,7 @@ namespace display {
         lv_obj_align(label_inv_status_s3, LV_ALIGN_TOP_LEFT, 5, 145);
     }
 
-    void create_screen_4(void) {
+    void create_screen_4() {
 
         screens[3] = lv_obj_create(nullptr);
         lv_obj_set_style_bg_color(screens[3], lv_color_hex(color::BLACK), 0);
@@ -234,25 +234,25 @@ namespace display {
         lv_obj_align(label_inv_status_s4, LV_ALIGN_TOP_LEFT, 5, y_offset);
     }
 
-    void create_screen_5(void) {
+    void create_screen_5() {
 
         screens[4] = lv_obj_create(nullptr);
         lv_obj_set_style_bg_color(screens[3], lv_color_hex(color::BLACK), 0);
     }
 
-    void create_screen_6(void) {
+    void create_screen_6() {
 
         screens[5] = lv_obj_create(nullptr);
         lv_obj_set_style_bg_color(screens[3], lv_color_hex(color::BLACK), 0);
     }
 
-    void create_screen_7(void) {
+    void create_screen_7() {
 
         screens[6] = lv_obj_create(nullptr);
         lv_obj_set_style_bg_color(screens[3], lv_color_hex(color::BLACK), 0);
     }
 
-    void create_screen_8(void) {
+    void create_screen_8() {
 
         screens[7] = lv_obj_create(nullptr);
         lv_obj_set_style_bg_color(screens[3], lv_color_hex(color::BLACK), 0);

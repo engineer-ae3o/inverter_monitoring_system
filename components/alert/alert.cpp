@@ -15,27 +15,27 @@ namespace display {
 
 
     // TODO: Implement alert popups
-    void alert_subsystem_t::voltage_alert_popup(void) {
+    void alert_subsystem_t::voltage_alert_popup() {
 
     }
 
-    void alert_subsystem_t::current_alert_popup(void) {
+    void alert_subsystem_t::current_alert_popup() {
 
     }
 
-    void alert_subsystem_t::temp_alert_popup(void) {
+    void alert_subsystem_t::temp_alert_popup() {
 
     }
 
-    void alert_subsystem_t::hmdt_alert_popup(void) {
+    void alert_subsystem_t::hmdt_alert_popup() {
 
     }
 
-    void alert_subsystem_t::batt_alert_popup(void) {
+    void alert_subsystem_t::batt_alert_popup() {
 
     }
 
-    [[nodiscard]] bool alert_subsystem_t::check_set_alerts(void) {
+    [[nodiscard]] bool alert_subsystem_t::check_set_alerts() {
 
         bool alerts_present = false;
 
@@ -187,7 +187,7 @@ namespace display {
         return alerts_present;
     }
 
-    void alert_subsystem_t::display_warnings_if_alerts(void) {
+    void alert_subsystem_t::display_warnings_if_alerts() {
 
         if (voltage_alert_present) {
             voltage_alert_popup();

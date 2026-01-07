@@ -67,11 +67,11 @@ namespace display {
         bool hmdt_alert_present;
         bool batt_alert_present;
 
-        void voltage_alert_popup(void);
-        void current_alert_popup(void);
-        void temp_alert_popup(void);
-        void hmdt_alert_popup(void);
-        void batt_alert_popup(void);
+        void voltage_alert_popup();
+        void current_alert_popup();
+        void temp_alert_popup();
+        void hmdt_alert_popup();
+        void batt_alert_popup();
 
     public:
         /**
@@ -84,12 +84,12 @@ namespace display {
          * 
          * @return true if there are any alarms, false otherwise
          */
-        [[nodiscard]] bool check_set_alerts(void);
+        [[nodiscard]] bool check_set_alerts();
 
         /**
          * @brief This function displays all alert popups, if any, one after the other
          */
-        void display_warnings_if_alerts(void);
+        void display_warnings_if_alerts();
     };
 }
 

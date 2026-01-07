@@ -712,7 +712,7 @@ static esp_err_t st7735_init_sequence(void) {
     // Memory access control (rotation)
     ret = st7735_send_cmd(ST7735_MADCTL);
     if (ret != ESP_OK) return ret;
-    uint8_t madctl;
+    uint8_t madctl = 0;
     switch (driver.config.rotation) {
     case 0:
         madctl = 0xC0;

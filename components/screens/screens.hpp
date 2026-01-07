@@ -14,14 +14,14 @@ namespace display {
     inline std::array<lv_obj_t*, NUM_SCREENS> screens{};
 
     // Screens creation
-    void create_screen_1(void);
-    void create_screen_2(void);
-    void create_screen_3(void);
-    void create_screen_4(void);
-    void create_screen_5(void);
-    void create_screen_6(void);
-    void create_screen_7(void);
-    void create_screen_8(void);
+    void create_screen_1();
+    void create_screen_2();
+    void create_screen_3();
+    void create_screen_4();
+    void create_screen_5();
+    void create_screen_6();
+    void create_screen_7();
+    void create_screen_8();
 
     // Updating screens
     void update_screen_1(const sys::data_t& data);

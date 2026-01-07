@@ -1,4 +1,4 @@
-#include "freertos/FreeRTOS.h"
+/*#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
@@ -10,7 +10,7 @@
 #include "display.hpp"
 #include "button_handler.hpp"
 #include "aht20.h"
-#include "st7735.h"
+#include "ili9341.h"
 
 #include "esp_task_wdt.h"
 #include "esp_littlefs.h"
@@ -34,6 +34,7 @@ static const char* TAG = "MAIN";
 #define LOGW(...)
 #define LOGE(...)
 #endif
+
 
 #define TWDT_ADD_TASK(name)                                                            \
     do {                                                                               \
@@ -91,6 +92,7 @@ struct file_data_t {
 };
 
 static esp_timer_handle_t display_led_timer_handle = nullptr;
+static ili9341_handle_t display_handle = nullptr;
 
 static adc::driver power;
 
@@ -119,7 +121,7 @@ static void init_all() {
     ASSERT(display_led_timer_handle, "display_led_timer_handle cannot be null");
 
     // LCD Initialization
-    constexpr st7735_config_t config = {
+    constexpr ili9341_config_t config = {
         // SPI configuration
         .spi_host = SPI_LCD_HOST,
         .spi_clock_speed_hz = SPI_CLK_SPEED,
@@ -142,14 +144,14 @@ static void init_all() {
         .task_stack_size = 4096
     };
 
-    result = st7735_init(&config);
+    result = ili9341_init(&config, &display_handle);
     if (result != ESP_OK) {
         LOGE("LCD initialization error: %s", esp_err_to_name(result));
         sys::handle_error();
     }
 
     // Display interface initialization
-    result = display::init();
+    result = display::init(display_handle);
     if (result != ESP_OK) {
         LOGE("Failed to initialize LVGL and the display interface: %s", esp_err_to_name(result));
         sys::handle_error();
@@ -705,11 +707,11 @@ void ble_task(void* arg) {
         ret = ble::notify_data(data);
         if (ret == ESP_OK) {
             LOGI("Data sent via BLE notification successfully");
-        } /* else if (ret == ESP_ERR_INVALID_STATE) {
+        } else if (ret == ESP_ERR_INVALID_STATE) {
             LOGW("BLE client not connected or subscibed");
         } else {
             LOGW("Failed to send data notification: %s", esp_err_to_name(ret));
-        } */
+        }
 
 #if BLE_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
@@ -838,4 +840,29 @@ extern "C" {
         }
     }
 
+} // extern "C"
+*/
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "ble.hpp"
+
+#include "esp_log.h"
+#include "esp_err.h"
+
+#include <array>
+
+
+extern "C" {
+    void app_main() {
+        ble::init();
+        ble::start();
+        while (1) {
+            ESP_LOGI("MAIN", "Logging every 10s to stay alive");
+            vTaskDelay(pdMS_TO_TICKS(10000U));
+        }
+        ble::stop();
+        ble::deinit();
+    }
 } // extern "C"

@@ -21,21 +21,8 @@ static const char* TAG = "ILI9341";
 #endif
 
 
-// ILI9341 commands
-static const uint8_t ILI9341_SWRESET                          = 0x01;
-static const uint8_t ILI9341_SLPOUT                           = 0x11;
-static const uint8_t ILI9341_NORON                            = 0x13;
-static const uint8_t ILI9341_INVOFF                           = 0x20;
-static const uint8_t ILI9341_DISPON                           = 0x29;
-static const uint8_t ILI9341_CASET                            = 0x2A;
-static const uint8_t ILI9341_RASET                            = 0x2B;
-static const uint8_t ILI9341_RAMWR                            = 0x2C;
-static const uint8_t ILI9341_MADCTL                           = 0x36;
-static const uint8_t ILI9341_COLMOD                           = 0x3A;
-
-
 static ili9341_driver_t instances[ILI9341_MAX_INSTANCES] = {};
-static DMA_ATTR uint16_t pixels_buf[ILI9341_MAX_INSTANCES][ILI9341_MAX_WIDTH * 10] = {}; // DMA buffer
+static DMA_ATTR uint16_t pixels_buf[ILI9341_MAX_INSTANCES][ILI9341_MAX_WIDTH * 36] = {}; // DMA buffer
 
 static uint8_t instance_counter = 0;
 SemaphoreHandle_t instance_counter_mutex = NULL;
@@ -43,10 +30,10 @@ SemaphoreHandle_t instance_counter_mutex = NULL;
 
 // Forward declarations
 static inline ili9341_handle_t get_instance(void);
-static inline void cleanup_gpio(ili9341_handle_t handle);
-static inline void cleanup_spi(ili9341_handle_t handle);
+static inline void gpio_cleanup(ili9341_handle_t handle);
+static inline void spi_cleanup(ili9341_handle_t handle);
 static void ili9341_task(void* arg);
-static void spi_post_transfer_callback(spi_transaction_t* trans);
+static void IRAM_ATTR spi_post_transfer_callback(spi_transaction_t* trans);
 static esp_err_t ili9341_send_cmd(uint8_t cmd, ili9341_handle_t handle);
 static esp_err_t ili9341_send_data(const uint8_t* data, size_t len, ili9341_handle_t handle);
 static void ili9341_hw_reset(ili9341_handle_t handle);
@@ -64,6 +51,11 @@ esp_err_t ili9341_init(const ili9341_config_t* config, ili9341_handle_t* handle)
         return ESP_ERR_INVALID_ARG;
     }
 
+    if (!instance_counter_mutex) {
+        instance_counter_mutex = xSemaphoreCreateMutex();
+        if (!instance_counter_mutex) return ESP_FAIL;
+    }
+
     if (!*handle) {
         *handle = get_instance();
         if (!*handle) return ESP_ERR_NO_MEM;
@@ -72,11 +64,6 @@ esp_err_t ili9341_init(const ili9341_config_t* config, ili9341_handle_t* handle)
     if ((*handle)->is_initialized) {
         ILI_LOGW("Current instance already initialized");
         return ESP_OK;
-    }
-
-    if (!instance_counter_mutex) {
-        instance_counter_mutex = xSemaphoreCreateMutex();
-        if (!instance_counter_mutex) return ESP_FAIL;
     }
 
     // We create the mutex here because we need it to ensure thread safety
@@ -114,7 +101,7 @@ esp_err_t ili9341_init(const ili9341_config_t* config, ili9341_handle_t* handle)
     (*handle)->shutdown_requested = false;
 
     // Configure DC and RESET pins
-    gpio_config_t io_conf = {
+    const gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << (*handle)->config.pin_dc) | (1ULL << (*handle)->config.pin_rst),
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
@@ -124,13 +111,13 @@ esp_err_t ili9341_init(const ili9341_config_t* config, ili9341_handle_t* handle)
 
     esp_err_t ret = gpio_config(&io_conf);
     if (ret != ESP_OK) {
-     ILI_LOGE("GPIO config for DC and RST pins failed: %s", esp_err_to_name(ret));
+        ILI_LOGE("GPIO config for DC and RST pins failed: %s", esp_err_to_name(ret));
         xSemaphoreGive((*handle)->handle_mutex);
         return ret;
     }
 
     // Configure SPI bus
-    spi_bus_config_t bus_cfg = {
+    const spi_bus_config_t bus_cfg = {
         .mosi_io_num = (*handle)->config.pin_mosi,
         .miso_io_num = -1,
         .sclk_io_num = (*handle)->config.pin_sclk,
@@ -141,14 +128,14 @@ esp_err_t ili9341_init(const ili9341_config_t* config, ili9341_handle_t* handle)
 
     ret = spi_bus_initialize((*handle)->config.spi_host, &bus_cfg, SPI_DMA_CH_AUTO);
     if (ret != ESP_OK) {
-     ILI_LOGE("SPI bus init failed: %s", esp_err_to_name(ret));
-        cleanup_gpio(*handle);
+        ILI_LOGE("SPI bus init failed: %s", esp_err_to_name(ret));
+        gpio_cleanup(*handle);
         xSemaphoreGive((*handle)->handle_mutex);
         return ret;
     }
 
     // Configure SPI device
-    spi_device_interface_config_t dev_cfg = {
+    const spi_device_interface_config_t dev_cfg = {
         .clock_speed_hz = (*handle)->config.spi_clock_speed_hz,
         .mode = 0,
         .spics_io_num = (*handle)->config.pin_cs,
@@ -159,9 +146,9 @@ esp_err_t ili9341_init(const ili9341_config_t* config, ili9341_handle_t* handle)
 
     ret = spi_bus_add_device((*handle)->config.spi_host, &dev_cfg, &(*handle)->spi);
     if (ret != ESP_OK) {
-     ILI_LOGE("SPI device add failed: %s", esp_err_to_name(ret));
-        cleanup_gpio(*handle);
-        cleanup_spi(*handle);
+        ILI_LOGE("SPI device add failed: %s", esp_err_to_name(ret));
+        gpio_cleanup(*handle);
+        spi_cleanup(*handle);
         xSemaphoreGive((*handle)->handle_mutex);
         return ret;
     }
@@ -194,8 +181,8 @@ esp_err_t ili9341_init(const ili9341_config_t* config, ili9341_handle_t* handle)
     }
 
     // Create background task
-    BaseType_t rc = xTaskCreatePinnedToCore(ili9341_task, "ILI9341Task", (*handle)->config.task_stack_size, handle,
-                                             (*handle)->config.task_priority, &(*handle)->task_handle, (*handle)->config.task_core);
+    BaseType_t rc = xTaskCreatePinnedToCore(ili9341_task, "ILI9341Task", (*handle)->config.task_stack_size, *handle,
+                                            (*handle)->config.task_priority, &(*handle)->task_handle, (*handle)->config.task_core);
     if (rc != pdPASS) {
         ILI_LOGE("Failed to create task");
         xSemaphoreGive((*handle)->handle_mutex);
@@ -490,12 +477,12 @@ static inline ili9341_handle_t get_instance(void) {
     return &instances[idx];
 }
 
-static inline void cleanup_gpio(ili9341_handle_t handle) {
+static inline void gpio_cleanup(ili9341_handle_t handle) {
     gpio_reset_pin(handle->config.pin_dc);
     gpio_reset_pin(handle->config.pin_rst);
 }
 
-static inline void cleanup_spi(ili9341_handle_t handle) {
+static inline void spi_cleanup(ili9341_handle_t handle) {
     if (handle->spi) {
         spi_bus_remove_device(handle->spi);
         handle->spi = NULL;
@@ -568,7 +555,7 @@ static void ili9341_task(void* arg) {
     vTaskDelete(NULL);
 }
 
-static void IRAM_ATTR spi_post_transfer_callback(spi_transaction_t* trans) {
+static void spi_post_transfer_callback(spi_transaction_t* trans) {
     // Signal completion from ISR
     BaseType_t higher_priority_task_woken = pdFALSE;
     ili9341_handle_t handle = (ili9341_handle_t)trans->user;
@@ -584,6 +571,7 @@ static esp_err_t ili9341_send_cmd(uint8_t cmd, ili9341_handle_t handle) {
         .length = 8, // 8 bits
         .tx_buffer = &cmd,
         .flags = 0,
+        .user = handle
     };
 
     return spi_device_polling_transmit(handle->spi, &trans);
@@ -591,16 +579,14 @@ static esp_err_t ili9341_send_cmd(uint8_t cmd, ili9341_handle_t handle) {
 
 static esp_err_t ili9341_send_data(const uint8_t* data, size_t len, ili9341_handle_t handle) {
 
-    if (!data || !len) {
-        return ESP_ERR_INVALID_ARG;
-    }
+    if (!data || len == 0) return ESP_ERR_INVALID_ARG;
 
     gpio_set_level(handle->config.pin_dc, 1);  // Data mode
 
     spi_transaction_t trans = {
         .length = len * 8,
         .tx_buffer = data,
-        .flags = 0,
+        .user = handle
     };
 
     return spi_device_polling_transmit(handle->spi, &trans);
@@ -608,13 +594,13 @@ static esp_err_t ili9341_send_data(const uint8_t* data, size_t len, ili9341_hand
 
 static esp_err_t ili9341_send_pixels(const uint16_t* pixels, size_t count, ili9341_handle_t handle) {
 
-    if (!pixels || !count) {
-     ILI_LOGE("Passed invalid parameters");
+    if (!pixels || count == 0) {
+        ILI_LOGE("Passed invalid parameters");
         return ESP_ERR_INVALID_ARG;
     }
 
     // Memory write
-    esp_err_t ret = ili9341_send_cmd(ILI9341_RAMWR, handle);
+    esp_err_t ret = ili9341_send_cmd(0x2C, handle);
     if (ret != ESP_OK) return ret;
 
     gpio_set_level(handle->config.pin_dc, 1);  // Data mode
@@ -622,20 +608,19 @@ static esp_err_t ili9341_send_pixels(const uint16_t* pixels, size_t count, ili93
     spi_transaction_t trans = {
         .length = count * 16,  // 16 bits per pixel
         .tx_buffer = pixels,
-        .user = handle,
-        .flags = 0
+        .user = handle
     };
 
     // Queue transaction
     ret = spi_device_queue_trans(handle->spi, &trans, pdMS_TO_TICKS(ILI9341_TIMEOUT_MS));
     if (ret != ESP_OK) {
-     ILI_LOGE("Pixel data queue failed: %s", esp_err_to_name(ret));
+        ILI_LOGE("Pixel data queue failed: %s", esp_err_to_name(ret));
         return ret;
     }
 
     // Wait for DMA completion
     if (xSemaphoreTake(handle->spi_done_sem, pdMS_TO_TICKS(ILI9341_TIMEOUT_MS)) != pdTRUE) {
-     ILI_LOGE("DMA timeout on pixel data transaction");
+        ILI_LOGE("DMA timeout on pixel data transaction");
         return ESP_ERR_TIMEOUT;
     }
 
@@ -643,7 +628,7 @@ static esp_err_t ili9341_send_pixels(const uint16_t* pixels, size_t count, ili93
     spi_transaction_t* trans_out = NULL;
     ret = spi_device_get_trans_result(handle->spi, &trans_out, pdMS_TO_TICKS(ILI9341_TIMEOUT_MS));
     if (ret != ESP_OK) {
-     ILI_LOGE("Get transaction result failed: %s", esp_err_to_name(ret));
+        ILI_LOGE("Get transaction result failed: %s", esp_err_to_name(ret));
     }
 
     return ret;
@@ -660,194 +645,203 @@ static void ili9341_hw_reset(ili9341_handle_t handle) {
 
 static esp_err_t ili9341_init_sequence(ili9341_handle_t handle) {
 
-    esp_err_t ret = ESP_OK;
     ILI_LOGI("Sending init sequence");
 
-    // Software reset
-    ret = ili9341_send_cmd(ILI9341_SWRESET, handle);
+    // 1. Software Reset
+    esp_err_t ret = ili9341_send_cmd(0x01, handle);
     if (ret != ESP_OK) return ret;
     vTaskDelay(pdMS_TO_TICKS(150));
 
-    // Sleep out
-    ret = ili9341_send_cmd(ILI9341_SLPOUT, handle);
-    if (ret != ESP_OK) return ret;
-    vTaskDelay(pdMS_TO_TICKS(500));
+    // 2. Sleep Out - Exit sleep mode
+    ret = ili9341_send_cmd(0x11, handle);
+    vTaskDelay(pdMS_TO_TICKS(150));
 
-    // Frame rate control - normal mode
-    ret = ili9341_send_cmd(0xB1, handle);
+    // 3. Power Control A
+    ret = ili9341_send_cmd(0xCB, handle);
     if (ret != ESP_OK) return ret;
-    const uint8_t frmctr1[] = {0x01, 0x2C, 0x2D};
-    ret = ili9341_send_data(frmctr1, 3, handle);
+    const uint8_t pwr_ctrl_a[] = { 0x39, 0x2C, 0x00, 0x34, 0x02 };
+    ili9341_send_data(pwr_ctrl_a, sizeof(pwr_ctrl_a), handle);
     if (ret != ESP_OK) return ret;
-
-    // Frame rate control - idle mode
-    ret = ili9341_send_cmd(0xB2, handle);
+    
+    // 4. Power Control B
+    ret = ili9341_send_cmd(0xCF, handle);
     if (ret != ESP_OK) return ret;
-    const uint8_t frmctr2[] = {0x01, 0x2C, 0x2D};
-    ret = ili9341_send_data(frmctr2, 3, handle);
+    const uint8_t pwr_ctrl_b[] = { 0x00, 0xC1, 0x30 };
+    ili9341_send_data(pwr_ctrl_b, sizeof(pwr_ctrl_b), handle);
     if (ret != ESP_OK) return ret;
-
-    // Frame rate control - partial mode
-    ret = ili9341_send_cmd(0xB3, handle);
+    
+    // 5. Driver Timing Control A
+    ret = ili9341_send_cmd(0xE8, handle);
     if (ret != ESP_OK) return ret;
-    const uint8_t frmctr3[] = {0x01, 0x2C, 0x2D, 0x01, 0x2C, 0x2D};
-    ret = ili9341_send_data(frmctr3, 6, handle);
+    const uint8_t drv_tim_ctrl_a[] = { 0x85, 0x00, 0x78 };
+    ili9341_send_data(drv_tim_ctrl_a, sizeof(drv_tim_ctrl_a), handle);
     if (ret != ESP_OK) return ret;
-
-    // Display inversion control
-    ret = ili9341_send_cmd(0xB4, handle);
+    
+    // 6. Driver Timing Control B
+    ret = ili9341_send_cmd(0xEA, handle);
     if (ret != ESP_OK) return ret;
-    const uint8_t invctr = 0x07;
-    ret = ili9341_send_data(&invctr, 1, handle);
+    const uint8_t drv_tim_ctrl_b[] = { 0x00, 0x00 };
+    ili9341_send_data(drv_tim_ctrl_b, sizeof(drv_tim_ctrl_b), handle);
     if (ret != ESP_OK) return ret;
-
-    // Power control 1
+    
+    // 7. Power On Sequence Control
+    ret = ili9341_send_cmd(0xED, handle);
+    if (ret != ESP_OK) return ret;
+    const uint8_t pwr_seq_ctrl[] = { 0x64, 0x03, 0x12, 0x81 };
+    ili9341_send_data(pwr_seq_ctrl, sizeof(pwr_seq_ctrl), handle);
+    if (ret != ESP_OK) return ret;
+    
+    // 8. Pump Ratio Control
+    ret = ili9341_send_cmd(0xF7, handle);
+    if (ret != ESP_OK) return ret;
+    const uint8_t pmp_ratio[] = { 0x20 };
+    ili9341_send_data(pmp_ratio, sizeof(pmp_ratio), handle);
+    if (ret != ESP_OK) return ret;
+    
+    // 9. Power Control 1
     ret = ili9341_send_cmd(0xC0, handle);
     if (ret != ESP_OK) return ret;
-    const uint8_t pwctr1[] = {0xA2, 0x02, 0x84};
-    ret = ili9341_send_data(pwctr1, 3, handle);
+    const uint8_t pwr_ctrl_1[] = { 0x23 };
+    ili9341_send_data(pwr_ctrl_1, sizeof(pwr_ctrl_1), handle);
     if (ret != ESP_OK) return ret;
-
-    // Power control 2
+    
+    // 10. Power Control 2
     ret = ili9341_send_cmd(0xC1, handle);
     if (ret != ESP_OK) return ret;
-    const uint8_t pwctr2 = 0xC5;
-    ret = ili9341_send_data(&pwctr2, 1, handle);
+    const uint8_t pwr_ctrl_2[] = { 0x10 };
+    ili9341_send_data(pwr_ctrl_2, sizeof(pwr_ctrl_2), handle);
     if (ret != ESP_OK) return ret;
-
-    // Power control 3
-    ret = ili9341_send_cmd(0xC2, handle);
-    if (ret != ESP_OK) return ret;
-    const uint8_t pwctr3[] = {0x0A, 0x00};
-    ret = ili9341_send_data(pwctr3, 2, handle);
-    if (ret != ESP_OK) return ret;
-
-    // Power control 4
-    ret = ili9341_send_cmd(0xC3, handle);
-    if (ret != ESP_OK) return ret;
-    const uint8_t pwctr4[] = {0x8A, 0x2A};
-    ret = ili9341_send_data(pwctr4, 2, handle);
-    if (ret != ESP_OK) return ret;
-
-    // Power control 5
-    ret = ili9341_send_cmd(0xC4, handle);
-    if (ret != ESP_OK) return ret;
-    const uint8_t pwctr5[] = {0x8A, 0xEE};
-    ret = ili9341_send_data(pwctr5, 2, handle);
-    if (ret != ESP_OK) return ret;
-
-    // VCOM control
+    
+    // 11. VCOM Control 1
     ret = ili9341_send_cmd(0xC5, handle);
     if (ret != ESP_OK) return ret;
-    const uint8_t vmctr1 = 0x0E;
-    ret = ili9341_send_data(&vmctr1, 1, handle);
+    const uint8_t vcom_ctrl_1[] = { 0x3E, 0x28 };
+    ili9341_send_data(vcom_ctrl_1, sizeof(vcom_ctrl_1), handle);
     if (ret != ESP_OK) return ret;
-
-    // Display inversion off
-    ret = ili9341_send_cmd(ILI9341_INVOFF, handle);
+    
+    // 12. VCOM Control 2
+    ret = ili9341_send_cmd(0xC7, handle);
     if (ret != ESP_OK) return ret;
-
-    // Memory access control (rotation)
-    ret = ili9341_send_cmd(ILI9341_MADCTL, handle);
+    const uint8_t vcom_ctrl_2[] = { 0x86 };
+    ili9341_send_data(vcom_ctrl_2, sizeof(vcom_ctrl_2), handle);
     if (ret != ESP_OK) return ret;
-    uint8_t madctl;
+    
+    // 13. Memory Access Control (rotation)
+    ret = ili9341_send_cmd(0x36, handle);
+    if (ret != ESP_OK) return ret;
+    uint8_t mem_acc_ctrl[] = { 0x48 };
     switch (handle->config.rotation) {
     case 0:
-        madctl = 0xC0;
+        mem_acc_ctrl[0] = 0x40;
         break;
     case 1:
-        madctl = 0xA0;
+        mem_acc_ctrl[0] = 0x20;
         break;
     case 2:
-        madctl = 0x00;
+        mem_acc_ctrl[0] = 0x80;
         break;
     case 3:
-        madctl = 0x60;
+        mem_acc_ctrl[0] = 0xE0;
         break;
     default:
-        madctl = 0xC0;
+        mem_acc_ctrl[0] = 0x48;
         break;
     }
-    ret = ili9341_send_data(&madctl, 1, handle);
+    ili9341_send_data(mem_acc_ctrl, sizeof(mem_acc_ctrl), handle);
     if (ret != ESP_OK) return ret;
-
-    // Color mode: 16-bit
-    ret = ili9341_send_cmd(ILI9341_COLMOD, handle);
+    
+    // 14. Pixel Format Set
+    ret = ili9341_send_cmd(0x3A, handle);
     if (ret != ESP_OK) return ret;
-    const uint8_t colmod = 0x05;
-    ret = ili9341_send_data(&colmod, 1, handle);
+    const uint8_t pxl_format_set[] = { 0x55 };  // 16 bits/pixel (65K colors)
+    ili9341_send_data(pxl_format_set, sizeof(pxl_format_set), handle);
     if (ret != ESP_OK) return ret;
-
-    // Gamma correction - positive polarity
+    
+    // 15. Frame Rate Control - Normal Mode
+    ret = ili9341_send_cmd(0xB1, handle);
+    if (ret != ESP_OK) return ret;
+    const uint8_t frame_rate_ctrl[] = { 0x00, 0x18 };
+    ili9341_send_data(frame_rate_ctrl, sizeof(frame_rate_ctrl), handle);
+    if (ret != ESP_OK) return ret;
+    
+    // 16. Display Function Control
+    ret = ili9341_send_cmd(0xB6, handle);
+    if (ret != ESP_OK) return ret;
+    const uint8_t disp_func_ctrl[] = { 0x08, 0x82, 0x27 };
+    ili9341_send_data(disp_func_ctrl, sizeof(disp_func_ctrl), handle);
+    if (ret != ESP_OK) return ret;
+    
+    // 17. Enable 3G - Disable 3 gamma
+    ret = ili9341_send_cmd(0xF2, handle);
+    if (ret != ESP_OK) return ret;
+    const uint8_t gamma_disable[] = { 0x00 };
+    ili9341_send_data(gamma_disable, sizeof(gamma_disable), handle);
+    if (ret != ESP_OK) return ret;
+    
+    // 18. Gamma Set
+    ret = ili9341_send_cmd(0x26, handle);
+    if (ret != ESP_OK) return ret;
+    const uint8_t gamma_set[] = { 0x01 };
+    ili9341_send_data(gamma_set, sizeof(gamma_set), handle);
+    if (ret != ESP_OK) return ret;
+    
+    // 19. Positive Gamma Correction
     ret = ili9341_send_cmd(0xE0, handle);
     if (ret != ESP_OK) return ret;
-    const uint8_t gmctrp1[] = {
-        0x02, 0x1c, 0x07, 0x12,
-        0x37, 0x32, 0x29, 0x2D,
-        0x29, 0x25, 0x2B, 0x39,
-        0x00, 0x01, 0x03, 0x10
-    };
-    ret = ili9341_send_data(gmctrp1, 16, handle);
+    const uint8_t positive_gamma_correct[] = { 0x0F, 0x31, 0x2B, 0x0C, 0x0E, 0x08, 0x4E, 0xF1, 0x37, 0x07, 0x10, 0x03, 0x0E, 0x09, 0x00 };
+    ili9341_send_data(positive_gamma_correct, sizeof(positive_gamma_correct), handle);
     if (ret != ESP_OK) return ret;
-
-    // Gamma correction - negative polarity
+    
+    // 20. Negative Gamma Correction
     ret = ili9341_send_cmd(0xE1, handle);
     if (ret != ESP_OK) return ret;
-    const uint8_t gmctrn1[] = {
-        0x03, 0x1D, 0x07, 0x06,
-        0x2E, 0x2C, 0x29, 0x2D,
-        0x2E, 0x2E, 0x37, 0x3F,
-        0x00, 0x00, 0x02, 0x10
-    };
-    ret = ili9341_send_data(gmctrn1, 16, handle);
+    const uint8_t negative_gamma_correct[] = { 0x00, 0x0E, 0x14, 0x03, 0x11, 0x07, 0x31, 0xC1, 0x48, 0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F };
+    ili9341_send_data(negative_gamma_correct, sizeof(negative_gamma_correct), handle);
     if (ret != ESP_OK) return ret;
 
-    // Normal display mode
-    ret = ili9341_send_cmd(ILI9341_NORON, handle);
+    // Display inversion OFF
+    ret = ili9341_send_cmd(0x20, handle);
     if (ret != ESP_OK) return ret;
-    vTaskDelay(pdMS_TO_TICKS(10));
-
-    // Display on
-    ret = ili9341_send_cmd(ILI9341_DISPON, handle);
+    
+    // 21. Display ON
+    ret = ili9341_send_cmd(0x29, handle);
     if (ret != ESP_OK) return ret;
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(20));
 
-    ILI_LOGI("Init sequence complete");
+    ILI_LOGI("ILI9341 initialization sequence complete");
 
     return ret;
 }
 
 static esp_err_t ili9341_set_window(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, ili9341_handle_t handle) {
 
-    esp_err_t ret = ESP_OK;
-
     // Column address set
-    ret = ili9341_send_cmd(ILI9341_CASET, handle);
+    esp_err_t ret = ili9341_send_cmd(0x2A, handle);
     if (ret != ESP_OK) return ret;
 
-    // ili9341 uses big endian alignment so we send high byte first
+    // The ILI9341 uses big endian alignment so we send high byte first
     // Column address set
-    const uint8_t caset_data[4] = {
-        (x1 >> 8) & 0xFF,
-        x1 & 0xFF,
-        (x2 >> 8) & 0xFF,
-        x2 & 0xFF
+    const uint8_t caset_data[] = {
+        (uint8_t)((x1 >> 8) & 0xFF),
+        (uint8_t)(x1 & 0xFF),
+        (uint8_t)((x2 >> 8) & 0xFF),
+        (uint8_t)(x2 & 0xFF)
     };
-    ret = ili9341_send_data(caset_data, 4, handle);
+    ret = ili9341_send_data(caset_data, sizeof(caset_data), handle);
     if (ret != ESP_OK) return ret;
 
     // Row address set
-    ret = ili9341_send_cmd(ILI9341_RASET, handle);
+    ret = ili9341_send_cmd(0x2B, handle);
     if (ret != ESP_OK) return ret;
 
-    const uint8_t raset_data[4] = {
-        (y1 >> 8) & 0xFF,
-        y1 & 0xFF,
-        (y2 >> 8) & 0xFF,
-        y2 & 0xFF
+    const uint8_t raset_data[] = {
+        (uint8_t)((y1 >> 8) & 0xFF),
+        (uint8_t)(y1 & 0xFF),
+        (uint8_t)((y2 >> 8) & 0xFF),
+        (uint8_t)(y2 & 0xFF)
     }; 
 
-    return ili9341_send_data(raset_data, 4, handle);
+    return ili9341_send_data(raset_data, sizeof(raset_data), handle);
 }
 
 static void ili9341_cleanup_resources(ili9341_handle_t handle) {
@@ -874,6 +868,6 @@ static void ili9341_cleanup_resources(ili9341_handle_t handle) {
     }
 
     // Remove SPI device and bus and GPIOs used
-    cleanup_gpio(handle);
-    cleanup_spi(handle);
+    gpio_cleanup(handle);
+    spi_cleanup(handle);
 }

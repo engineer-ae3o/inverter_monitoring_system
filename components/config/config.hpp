@@ -69,8 +69,8 @@ namespace config {
     constexpr inline uint32_t TIME_TO_LED_0_PERCENT_BRIGHTNESS_US    = 10 * 1000 * 1000;   // 10s
     
     // SPI and LCD Configuration details
-    constexpr inline uint16_t LCD_WIDTH                              = 128;
-    constexpr inline uint16_t LCD_HEIGHT                             = 160;
+    constexpr inline uint16_t LCD_WIDTH                              = 240;
+    constexpr inline uint16_t LCD_HEIGHT                             = 360;
     constexpr inline uint16_t LCD_ROTATION                           = 4;
     constexpr inline uint16_t LCD_SPI_MAX_RETRIES                    = 4;
     constexpr inline uint32_t SPI_CLK_SPEED                          = 40 * 1000 * 1000; // 40MHz
