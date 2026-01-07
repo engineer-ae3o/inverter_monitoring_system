@@ -1,4 +1,4 @@
-/*#include "freertos/FreeRTOS.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
@@ -840,29 +840,4 @@ extern "C" {
         }
     }
 
-} // extern "C"
-*/
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
-#include "ble.hpp"
-
-#include "esp_log.h"
-#include "esp_err.h"
-
-#include <array>
-
-
-extern "C" {
-    void app_main() {
-        ble::init();
-        ble::start();
-        while (1) {
-            ESP_LOGI("MAIN", "Logging every 10s to stay alive");
-            vTaskDelay(pdMS_TO_TICKS(10000U));
-        }
-        ble::stop();
-        ble::deinit();
-    }
 } // extern "C"
