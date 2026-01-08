@@ -33,6 +33,7 @@ extern "C" {
 #define ILI9341_DEFAULT_TASK_CORE                             1U
 #define ILI9341_DEFAULT_TASK_STACK_SIZE                       4096U
 
+
 typedef struct {
 
     // SPI configuration
@@ -62,47 +63,12 @@ typedef struct {
 
 } ili9341_config_t;
 
+
 // Callback invoked when flush operation completes
 typedef void (*ili9341_flush_cb_t)(void* user_data, esp_err_t result);
 
-// Flush request structure
-typedef struct {
-    uint8_t x1, y1, x2, y2;
-    const uint16_t* pixels;
-    size_t pixel_count;
-    ili9341_flush_cb_t callback;
-    void* user_data;
-} ili9341_flush_req_t;
-
-// Driver states
-typedef enum {
-    ILI9341_STATE_IDLE,
-    ILI9341_STATE_BUSY
-} ili9341_state_t;
-
-// Driver context
-typedef struct {
-
-    spi_device_handle_t spi;
-    ili9341_config_t config;
-    volatile ili9341_state_t state;
-
-    SemaphoreHandle_t spi_done_sem;     // Signaled by ISR when SPI completes
-    QueueHandle_t flush_queue;          // Queue of pending flush requests
-    TaskHandle_t task_handle;           // Background processing task
-    SemaphoreHandle_t handle_mutex;     // Mutex for thread safety
-
-    bool is_initialized;
-    bool shutdown_requested;
-    TaskHandle_t deinit_task_handle;
-
-    uint16_t* pixels_buf;               // Pointer to DMA buffer for current instance
-    uint16_t size_of_pixel_buf_bytes;
-    SemaphoreHandle_t dma_semphr;       // Semaphore to ensure safe access of dma buffer
-
-} ili9341_driver_t;
-
 // Handle by which the current driver instance can be referenced
+typedef struct ili9341_driver_t ili9341_driver_t;
 typedef ili9341_driver_t* ili9341_handle_t;
 
 

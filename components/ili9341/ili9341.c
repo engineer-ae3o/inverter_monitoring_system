@@ -21,6 +21,43 @@ static const char* TAG = "ILI9341";
 #endif
 
 
+// Flush request structure
+typedef struct {
+    uint8_t x1, y1, x2, y2;
+    const uint16_t* pixels;
+    size_t pixel_count;
+    ili9341_flush_cb_t callback;
+    void* user_data;
+} ili9341_flush_req_t;
+
+// Driver states
+typedef enum {
+    ILI9341_STATE_IDLE,
+    ILI9341_STATE_BUSY
+} ili9341_state_t;
+
+// Driver context
+struct ili9341_driver_t {
+
+    spi_device_handle_t spi;
+    ili9341_config_t config;
+    volatile ili9341_state_t state;
+
+    SemaphoreHandle_t spi_done_sem;     // Signaled by ISR when SPI completes
+    QueueHandle_t flush_queue;          // Queue of pending flush requests
+    TaskHandle_t task_handle;           // Background processing task
+    SemaphoreHandle_t handle_mutex;     // Mutex for thread safety
+
+    bool is_initialized;
+    bool shutdown_requested;
+    TaskHandle_t deinit_task_handle;
+
+    uint16_t* pixels_buf;               // Pointer to DMA buffer for current instance
+    uint16_t size_of_pixel_buf_bytes;
+    SemaphoreHandle_t dma_semphr;       // Semaphore to ensure safe access of dma buffer
+};
+
+
 static ili9341_driver_t instances[ILI9341_MAX_INSTANCES] = {};
 static DMA_ATTR uint16_t pixels_buf[ILI9341_MAX_INSTANCES][ILI9341_MAX_WIDTH * 36] = {}; // DMA buffer
 

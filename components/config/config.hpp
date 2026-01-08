@@ -29,11 +29,11 @@ namespace config {
 
     constexpr inline uint16_t LOG_TASK_STACK_SIZE                    = 4 * 1024;
     constexpr inline uint16_t LOG_TASK_PRIORITY                      = 2;
-    constexpr inline uint16_t LOG_TASK_PERIOD_MS                     = 10 * 1000; // 10s
+    constexpr inline uint16_t LOG_TASK_PERIOD_MS                     = 5 * 1000; // 5s
 
     constexpr inline uint16_t BLE_TASK_STACK_SIZE                    = 4 * 1024;
     constexpr inline uint16_t BLE_TASK_PRIORITY                      = 2;
-    constexpr inline uint16_t BLE_TASK_PERIOD_MS                     = 5 * 1000; // 5s
+    constexpr inline uint16_t BLE_TASK_PERIOD_MS                     = 2 * 1000; // 2s
     
     // Pin definitions
     constexpr inline gpio_num_t AHT_SDA_PIN                          = GPIO_NUM_5;
@@ -58,7 +58,8 @@ namespace config {
     constexpr inline uint32_t BUTTON_LONG_PRESS_US                   = 2 * 1000 * 1000; // 2s
 
     // File data
-    constexpr uint8_t NUM_OF_ITEMS_TO_STORE_TEMP                     = 50;
+    constexpr inline uint8_t NUM_OF_ITEMS_TO_STORE_TEMP              = 50;
+    constexpr inline uint8_t MAX_FILE_IO_ERRORS                      = 100;
     constexpr inline uint16_t MAX_SAMPLES_TO_LOG                     = 50000;
     constexpr inline const char DATA_FILE_NAME[]                     = "/storage/file_data.log";
     constexpr inline const char META_DATA_FILE_NAME[]                = "/storage/file_meta_data.log";

@@ -6,6 +6,8 @@
 
 namespace ble {
 
+    void ble_data_init();
+
     float get_temperature();
 
     float get_humidity();

@@ -19,6 +19,7 @@
 #include "esp_nimble_hci.h"
 
 #include <cstdint>
+#include <array>
 
 
 #define BLE_DEBUG 0
@@ -90,9 +91,6 @@ namespace ble {
     static connection_context_t connection_context{};
 
     class chr_notify_t {
-    private:
-        bool chr_notify_state[7];
-
     public:
         enum class chr_t : uint8_t {
             TEMPERATURE = 0,
@@ -101,13 +99,16 @@ namespace ble {
             CURRENT,
             POWER,
             BATT_SoC,
-            RUNTIME_S
+            RUNTIME_S,
+            COUNT
         };
 
+    private:
+        std::array<bool, static_cast<size_t>(chr_t::COUNT)> chr_notify_state;
+        
+    public:
         chr_notify_t() {
-            for (auto ele : chr_notify_state) {
-                chr_notify_state[ele] = false;
-            }
+            chr_notify_state.fill(false);
         }
 
         void set_chr_notify_state(chr_t chr, bool state = true) {
@@ -119,9 +120,7 @@ namespace ble {
         }
 
         void set_all_chr_notify_state(bool state = true) {
-            for (auto ele : chr_notify_state) {
-                chr_notify_state[ele] = state;
-            }
+            chr_notify_state.fill(state);
         }
 
         // If you are using a generic BLE app like the nRF Connect or some other app, it
@@ -392,6 +391,8 @@ namespace ble {
             return ret;
         }
 
+        ble_data_init();
+
         // BLE Host settings
         // @brief This is called when the the host and controller get synced
         // Determines the best address_type type to use for automatic address_type type resolution
@@ -411,9 +412,6 @@ namespace ble {
         
             BLE_LOGI("Device Address: %X:%X:%X:%X:%X:%X",
                      addr_val[5], addr_val[4], addr_val[3], addr_val[2], addr_val[1], addr_val[0]);
-            
-            // Begin advertising
-            ble_advertise();
             
             BLE_LOGI("Host and controller now synced");
         };
@@ -524,6 +522,7 @@ namespace ble {
     
     esp_err_t deinit() {
 
+        chr_notify.set_all_chr_notify_state(false);
         connection_context.clear_all();
 
         // Stop nimble freertos task
@@ -653,6 +652,14 @@ namespace ble {
         BLE_LOGI("Advertising stopped");
 
         return ESP_OK;
+    }
+
+    [[nodiscard]] bool is_client_subscribed() {
+        bool ret = false;
+        for (size_t i = 0; i < static_cast<size_t>(chr_notify_t::chr_t::COUNT); i++) {
+            if (chr_notify.get_chr_notify_state(static_cast<chr_notify_t::chr_t>(i))) ret = true;
+        }
+        return ret;
     }
 
     // Static helpers
@@ -798,9 +805,6 @@ namespace ble {
             return BLE_GAP_REPEAT_PAIRING_RETRY;
         case BLE_GAP_EVENT_MTU:
             BLE_LOGI("MTU update event. Connection handle = %d, MTU = %d", event->mtu.conn_handle, event->mtu.value);
-            break;
-        case BLE_GAP_EVENT_NOTIFY_RX:
-            BLE_LOGI("");
             break;
         default:
             BLE_LOGW("Unknown event occured: %d", event->type);

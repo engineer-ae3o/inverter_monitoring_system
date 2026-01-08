@@ -317,8 +317,8 @@ void log_task(void* arg) {
     FILE_t* f_data_file = fopen(DATA_FILE_NAME, "rb+");
     if (!f_data_file) {
         // If the file doesn't exist, we create it with wb+
-        // We can't use wb+ initially because it zeros out our file whether or not it does exists,
-        // overwriting existing data
+        // We can't use wb+ initially because it zeros out our file
+        // whether or not it does exists, overwriting existing data
         f_data_file = fopen(DATA_FILE_NAME, "wb+");
         ASSERT(f_data_file, "f_data_file cannot be null");
     }
@@ -332,20 +332,22 @@ void log_task(void* arg) {
         f_meta_data_file = fopen(META_DATA_FILE_NAME, "wb+");
         ASSERT(f_meta_data_file, "f_meta_data_file cannot be null");
         // We then write data_file_idx's initial 0 value to it
-        fwrite(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file);
+        ASSERT((fwrite(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file) == 1), "Failed to write data_file_idx to metadata file");
     } else {
         // Since the file exists, we read from it and we bounds check against MAX_SAMPLES_TO_LOG
-        fread(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file);
+        ASSERT((fread(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file) == 1), "Failed to read file index");
         if (data_file_idx >= MAX_SAMPLES_TO_LOG) {
             data_file_idx = 0;
         }
     }
 
     // Position f_data_file at the next write location (resume from where we left off on last boot)
-    fseek(f_data_file, data_file_idx * sizeof(file_data_t), SEEK_SET);
+    ASSERT(fseek(f_data_file, data_file_idx * sizeof(file_data_t), SEEK_SET) == 0, "Failed to set file index for writing");
     
     sys::data_t data{};
     file_data_t file_data{};
+    uint8_t ret = 0;
+    size_t err_count = 0;
 
     std::array<file_data_t, NUM_OF_ITEMS_TO_STORE_TEMP> data_buffer_temp{};
     size_t temp_buffer_idx = 0;
@@ -373,12 +375,13 @@ void log_task(void* arg) {
         file_data.humidity        = data.inv_hmdt;
         file_data.battery_soc     = data.battery_percent;
 
-        // Store the received data in a temporary buffer and increment index
+        // Store the received data in temporary buffer and increment index
         data_buffer_temp[temp_buffer_idx++] = file_data;
         
         if (temp_buffer_idx >= NUM_OF_ITEMS_TO_STORE_TEMP) {
             // Write samples to flash after our temporary buffer is full
-            fwrite(data_buffer_temp.data(), sizeof(file_data_t), NUM_OF_ITEMS_TO_STORE_TEMP, f_data_file);
+            ret = fwrite(data_buffer_temp.data(), sizeof(file_data_t), NUM_OF_ITEMS_TO_STORE_TEMP, f_data_file);
+            if (ret != NUM_OF_ITEMS_TO_STORE_TEMP) err_count++;
             temp_buffer_idx = 0;
 
             // Increment data_file_idx by NUM_OF_ITEMS_TO_STORE_TEMP because we stored that number of items
@@ -387,7 +390,9 @@ void log_task(void* arg) {
             // Set f_meta_data_file back to the beginning of the file before writing to the file
             // to overwrite the old data index present because we don't need to store different indices
             rewind(f_meta_data_file);
-            fwrite(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file);
+
+            ret = fwrite(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file);
+            if (ret != 1) err_count++;
 
             // No need to call `fflush()` as `fwrite()` writes to flash immediately
         }
@@ -398,6 +403,11 @@ void log_task(void* arg) {
             // Move f_data_file to the beginning of the file so we can overwrite the oldest data
             // since we have gotten to MAX_SAMPLES_TO_LOG 
             rewind(f_data_file);
+        }
+
+        if (err_count >= MAX_FILE_IO_ERRORS) {
+            LOGE("Too many file IO errors: %u", err_count);
+            sys::handle_error();
         }
 
 #if LOG_TASK_PROFILING == 1
@@ -699,6 +709,11 @@ void ble_task(void* arg) {
         int64_t start = esp_timer_get_time();
 #endif
 
+        if (!ble::is_client_subscribed()) {
+            vTaskDelay(pdMS_TO_TICKS(BLE_TASK_PERIOD_MS));
+            continue;
+        }
+
         if (xQueuePeek(final_data_queue, &data, pdMS_TO_TICKS(BLE_TASK_PERIOD_MS)) != pdTRUE) {
             LOGW("Failed to receive data from final_data_queue (ble_task)");
             continue;
@@ -708,7 +723,7 @@ void ble_task(void* arg) {
         if (ret == ESP_OK) {
             LOGI("Data sent via BLE notification successfully");
         } else if (ret == ESP_ERR_INVALID_STATE) {
-            LOGW("BLE client not connected or subscibed");
+            LOGW("BLE client not connected or subscribed");
         } else {
             LOGW("Failed to send data notification: %s", esp_err_to_name(ret));
         }
@@ -736,13 +751,13 @@ void ble_task(void* arg) {
 
 extern "C" {
 
-    void app_main(void) {
-
-        // Initialize all components
-        init_all();
+    void app_main() {
 
         // Create queues
         queue_create();
+
+        // Initialize all components
+        init_all();
 
         lvgl_display_mutex = xSemaphoreCreateMutex();
         ASSERT(lvgl_display_mutex, "lvgl_display_mutex cannot be null");

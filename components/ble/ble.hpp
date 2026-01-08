@@ -47,6 +47,13 @@ namespace ble {
      */
     esp_err_t stop();
 
+    /**
+     * @brief Checks if a ble client is subscribed to any characteristic
+     * 
+     * @return true if a client is subscribed
+     */
+    [[nodiscard]] bool is_client_subscribed();
+
 } // namespace ble
 
 

@@ -4,18 +4,20 @@
 #include "ble_data.hpp"
 #include "system.hpp"
 
+#include "esp_log.h"
 
-// extern QueueHandle_t& get_data_queue();
+
+extern QueueHandle_t& get_data_queue();
 
 namespace ble {
-
-    QueueHandle_t& get_data_queue() {
-        static QueueHandle_t handle = xQueueCreate(5, 5 * sizeof(int));
-        return handle;
-    }
     
-    static QueueHandle_t& data_queue  = get_data_queue();
+    static QueueHandle_t data_queue = nullptr;
     static sys::data_t data{};
+
+    void ble_data_init() {
+        data_queue = get_data_queue();
+        ASSERT(data_queue, "data_queue cannot be null");
+    }
 
     // We don't have to check the return value of `xQueuePeek`
     // because we return the last cached data stored in data 
