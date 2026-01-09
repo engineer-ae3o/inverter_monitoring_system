@@ -59,7 +59,7 @@ struct ili9341_driver_t {
 
 
 static ili9341_driver_t instances[ILI9341_MAX_INSTANCES] = {};
-static DMA_ATTR uint16_t pixels_buf[ILI9341_MAX_INSTANCES][ILI9341_MAX_WIDTH * 36] = {}; // DMA buffer
+static DMA_ATTR uint16_t pixels_buf[ILI9341_MAX_INSTANCES][ILI9341_MAX_WIDTH * 32] = {}; // DMA buffer
 
 static uint8_t instance_counter = 0;
 SemaphoreHandle_t instance_counter_mutex = NULL;
@@ -217,7 +217,7 @@ esp_err_t ili9341_init(const ili9341_config_t* config, ili9341_handle_t* handle)
         return ESP_FAIL;
     }
 
-    // Create background task
+    // Create task which handles dma transfers
     BaseType_t rc = xTaskCreatePinnedToCore(ili9341_task, "ILI9341Task", (*handle)->config.task_stack_size, *handle,
                                             (*handle)->config.task_priority, &(*handle)->task_handle, (*handle)->config.task_core);
     if (rc != pdPASS) {
@@ -405,7 +405,7 @@ esp_err_t ili9341_set_screen(uint16_t color, ili9341_flush_cb_t callback, void* 
     }
 
     if (xSemaphoreTake(handle->handle_mutex, pdMS_TO_TICKS(ILI9341_TIMEOUT_MS)) != pdTRUE) {
-     ILI_LOGE("Unable to take mutex");
+        ILI_LOGE("Unable to take mutex");
         if (callback) callback(user_data, ESP_ERR_TIMEOUT);
         return ESP_ERR_TIMEOUT;
     }
@@ -417,7 +417,7 @@ esp_err_t ili9341_set_screen(uint16_t color, ili9341_flush_cb_t callback, void* 
     }
 
     if (xSemaphoreTake(handle->dma_semphr, pdMS_TO_TICKS(ILI9341_TIMEOUT_MS)) != pdTRUE) {
-     ILI_LOGE("DMA buffer in use for too long. Timing out from ili9341_set_screen()");
+        ILI_LOGE("DMA buffer in use for too long. Timing out from ili9341_set_screen()");
         if (callback) callback(user_data, ESP_ERR_TIMEOUT);
         xSemaphoreGive(handle->handle_mutex);
         return ESP_ERR_TIMEOUT;
@@ -431,12 +431,12 @@ esp_err_t ili9341_set_screen(uint16_t color, ili9341_flush_cb_t callback, void* 
         handle->pixels_buf[i] = color;
     }
 
-    const uint16_t num_of_times_to_send_pixels = handle->config.width * handle->config.height / num_of_pixels;
-    const uint16_t offset = handle->config.height / num_of_times_to_send_pixels;
-    uint16_t y1 = 0, y2 = offset;
+    const uint32_t num_of_times_to_send_pixels = handle->config.width * handle->config.height / num_of_pixels;
+    const uint32_t offset = handle->config.height / num_of_times_to_send_pixels;
+    uint32_t y1 = 0, y2 = offset;
 
     // Send data in batches
-    for (uint16_t i = 0; i < num_of_times_to_send_pixels; i++) {    
+    for (uint32_t i = 0; i < num_of_times_to_send_pixels; i++) {    
         // Package flush request
         ili9341_flush_req_t req = {
             .x1 = 0,
@@ -769,19 +769,19 @@ static esp_err_t ili9341_init_sequence(ili9341_handle_t handle) {
     uint8_t mem_acc_ctrl[] = { 0x48 };
     switch (handle->config.rotation) {
     case 0:
-        mem_acc_ctrl[0] = 0x40;
+        mem_acc_ctrl[0] = 0x08;
         break;
     case 1:
-        mem_acc_ctrl[0] = 0x20;
+        mem_acc_ctrl[0] = 0x48;
         break;
     case 2:
-        mem_acc_ctrl[0] = 0x80;
+        mem_acc_ctrl[0] = 0x88;
         break;
     case 3:
-        mem_acc_ctrl[0] = 0xE0;
+        mem_acc_ctrl[0] = 0xB8;
         break;
     default:
-        mem_acc_ctrl[0] = 0x48;
+        mem_acc_ctrl[0] = 0x08;
         break;
     }
     ili9341_send_data(mem_acc_ctrl, sizeof(mem_acc_ctrl), handle);

@@ -58,12 +58,14 @@ static const char* TAG = "MAIN";
 #define AHT_TASK_PROFILING                                  0
 #define LOG_TASK_PROFILING                                  0
 #define CALC_TASK_PROFILING                                 0
-#define DISPLAY_TASK_PROFILING                              0
-#define LVGL_TASK_PROFILING                                 0
+#define DISPLAY_TASK_PROFILING                              1
+#define LVGL_TASK_PROFILING                                 1
 #define BLE_TASK_PROFILING                                  0
+
 
 using namespace config;
 using FILE_t = FILE;
+
 
 // Task handles
 static TaskHandle_t calc_runtime_task_handle = nullptr;
@@ -118,7 +120,7 @@ static void init_all() {
         LOGE("Failed to initialize button handler: %s", esp_err_to_name(result));
         sys::handle_error();
     }
-    ASSERT(display_led_timer_handle, "display_led_timer_handle cannot be null");
+    ASSERT(display_led_timer_handle, "display_led_timer_handle cannot be nullptr");
 
     // LCD Initialization
     constexpr ili9341_config_t config = {
@@ -313,14 +315,14 @@ void log_task(void* arg) {
 
     // Open f_data_file for reading and writing in binary format
     // We first check if the file exists with rb+. If it exists, we proceed
-    // NOTE: rb+ returns NULL if the file doesn't exist
+    // NOTE: rb+ returns nullptr if the file doesn't exist
     FILE_t* f_data_file = fopen(DATA_FILE_NAME, "rb+");
     if (!f_data_file) {
         // If the file doesn't exist, we create it with wb+
         // We can't use wb+ initially because it zeros out our file
         // whether or not it does exists, overwriting existing data
         f_data_file = fopen(DATA_FILE_NAME, "wb+");
-        ASSERT(f_data_file, "f_data_file cannot be null");
+        ASSERT(f_data_file, "f_data_file cannot be nullptr");
     }
 
     // Open f_meta_data_file for reading and writing in binary format
@@ -330,7 +332,7 @@ void log_task(void* arg) {
     if (!f_meta_data_file) {
         // If the file doesn't exist, we create it with wb+
         f_meta_data_file = fopen(META_DATA_FILE_NAME, "wb+");
-        ASSERT(f_meta_data_file, "f_meta_data_file cannot be null");
+        ASSERT(f_meta_data_file, "f_meta_data_file cannot be nullptr");
         // We then write data_file_idx's initial 0 value to it
         ASSERT((fwrite(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file) == 1), "Failed to write data_file_idx to metadata file");
     } else {
@@ -563,7 +565,7 @@ void display_task(void* arg) {
 
     // Get queue in which button events are passed
     QueueHandle_t btn_queue = button::get_queue();
-    ASSERT(btn_queue, "btn_queue cannot be null");
+    ASSERT(btn_queue, "btn_queue cannot be nullptr");
 
     // Initialize local variables being used
     button::event_t event = button::event_t::NO_EVENT;
@@ -760,99 +762,49 @@ extern "C" {
         init_all();
 
         lvgl_display_mutex = xSemaphoreCreateMutex();
-        ASSERT(lvgl_display_mutex, "lvgl_display_mutex cannot be null");
+        ASSERT(lvgl_display_mutex, "lvgl_display_mutex cannot be nullptr");
 
         // Create tasks
-        BaseType_t ret = xTaskCreate(
-                                     lvgl_handler_task, 
-                                     "LVGLHandlerTask", 
-                                     LVGL_TASK_STACK_SIZE, 
-                                     nullptr, 
-                                     LVGL_TASK_PRIORITY, 
-                                     &lvgl_task_handle
-        );
+        BaseType_t ret = xTaskCreate(lvgl_handler_task, "LVGLHandlerTask", LVGL_TASK_STACK_SIZE, nullptr, LVGL_TASK_PRIORITY, &lvgl_task_handle);
         if (ret != pdPASS) {
             LOGE("Failed to create lvgl_handler_task");
             sys::handle_error();
         }
         
-        ret = xTaskCreate(
-                          log_task, 
-                          "LogTask", 
-                          LOG_TASK_STACK_SIZE, 
-                          nullptr, 
-                          LOG_TASK_PRIORITY,
-                          &log_task_handle
-        );
+        ret = xTaskCreate(log_task, "LogTask", LOG_TASK_STACK_SIZE, nullptr, LOG_TASK_PRIORITY, &log_task_handle);
         if (ret != pdPASS) {
             LOGE("Failed to create log_task");
             sys::handle_error();
         }
 
-        ret = xTaskCreate(
-                          aht_task,
-                          "AHTTask",
-                          AHT_TASK_STACK_SIZE,
-                          nullptr,
-                          AHT_TASK_PRIORITY,
-                          &aht_task_handle
-        );
+        ret = xTaskCreate(aht_task, "AHTTask", AHT_TASK_STACK_SIZE, nullptr, AHT_TASK_PRIORITY, &aht_task_handle);
         if (ret != pdPASS) {
             LOGE("Failed to create aht_task");
             sys::handle_error();
         }
 
-        ret = xTaskCreate(
-                          adc_task,
-                          "ADCTask",
-                          ADC_TASK_STACK_SIZE,
-                          nullptr,
-                          ADC_TASK_PRIORITY,
-                          &adc_task_handle
-        );
+        ret = xTaskCreate(adc_task, "ADCTask", ADC_TASK_STACK_SIZE, nullptr, ADC_TASK_PRIORITY, &adc_task_handle);
         if (ret != pdPASS) {
             LOGE("Failed to create adc_task");
             sys::handle_error();
         }
 
-        ret = xTaskCreate(
-                          display_task,
-                          "DisplayTask",
-                          DISPLAY_TASK_STACK_SIZE,
-                          nullptr,
-                          DISPLAY_TASK_PRIORITY,
-                          &display_task_handle
-        );
+        ret = xTaskCreate(display_task, "DisplayTask", DISPLAY_TASK_STACK_SIZE, nullptr, DISPLAY_TASK_PRIORITY, &display_task_handle);
         if (ret != pdPASS) {
             LOGE("Failed to create display_task");
             sys::handle_error();
         }
 
-        ret = xTaskCreate(
-                          runtime_calc_task,
-                          "RuntimeCalcsTask",
-                          CALC_TASK_STACK_SIZE,
-                          nullptr,
-                          CALC_TASK_PRIORITY,
-                          &calc_runtime_task_handle
-        );
+        ret = xTaskCreate(runtime_calc_task, "RuntimeCalcsTask", CALC_TASK_STACK_SIZE, nullptr, CALC_TASK_PRIORITY, &calc_runtime_task_handle);
         if (ret != pdPASS) {
             LOGE("Failed to create runtime_calc_task");
             sys::handle_error();
         }
 
-        ret = xTaskCreate(
-                          ble_task, 
-                          "BLETask", 
-                          BLE_TASK_STACK_SIZE, 
-                          nullptr, 
-                          BLE_TASK_PRIORITY, 
-                          &ble_task_handle
-        );
+        ret = xTaskCreate(ble_task, "BLETask", BLE_TASK_STACK_SIZE, nullptr, BLE_TASK_PRIORITY, &ble_task_handle);
         if (ret != pdPASS) {
             LOGE("Failed to create ble_task");
             sys::handle_error();
         }
     }
-
 } // extern "C"

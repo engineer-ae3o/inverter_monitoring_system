@@ -71,10 +71,10 @@ namespace config {
     
     // SPI and LCD Configuration details
     constexpr inline uint16_t LCD_WIDTH                              = 240;
-    constexpr inline uint16_t LCD_HEIGHT                             = 360;
-    constexpr inline uint16_t LCD_ROTATION                           = 4;
+    constexpr inline uint16_t LCD_HEIGHT                             = 320;
+    constexpr inline uint16_t LCD_ROTATION                           = 1;
     constexpr inline uint16_t LCD_SPI_MAX_RETRIES                    = 4;
-    constexpr inline uint32_t SPI_CLK_SPEED                          = 40 * 1000 * 1000; // 40MHz
+    constexpr inline uint32_t SPI_CLK_SPEED                          = 55 * 1000 * 1000; // 55MHz
     constexpr inline spi_host_device_t SPI_LCD_HOST                  = SPI2_HOST;
     
     // Queue parameters

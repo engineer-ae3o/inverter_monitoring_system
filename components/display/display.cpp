@@ -35,8 +35,8 @@ namespace display {
     // UI Screens
     static uint8_t current_screen_idx                       = 0;
     
-    // Display buffer for LVGL (36 lines worth of pixels)
-    static constexpr size_t DISP_BUF_SIZE                   = config::LCD_WIDTH * 36;
+    // Display buffer for LVGL (32 lines worth of pixels)
+    static constexpr size_t DISP_BUF_SIZE                   = config::LCD_WIDTH * 32;
     static constexpr uint16_t DISP_BOOTUP_SCREEN_TIME_MS    = 2500;
     
     static std::array<uint16_t, DISP_BUF_SIZE> buf1{};
@@ -126,7 +126,7 @@ namespace display {
 
         lv_obj_t* created_img = lv_img_create(bootup_scr);
         lv_img_set_src(created_img, &vhorde_logo);
-        lv_obj_align(created_img, LV_ALIGN_TOP_MID, 0, 64);
+        lv_obj_align(created_img, LV_ALIGN_TOP_MID, 0, 44);
 
         lv_scr_load(bootup_scr);
 
@@ -213,14 +213,14 @@ namespace display {
     // Helper Functions
     static void disp_flush_cb(lv_display_t* display, const lv_area_t* area, uint8_t* px_map) {
 
-        uint16_t width = area->x2 - area->x1 + 1;
-        uint16_t height = area->y2 - area->y1 + 1;
-        size_t pixel_count = width * height;
+        const uint16_t width = area->x2 - area->x1 + 1;
+        const uint16_t height = area->y2 - area->y1 + 1;
+        const size_t pixel_count = width * height;
 
-        auto px_data = reinterpret_cast<uint16_t*>(px_map);
+        const auto px_data = reinterpret_cast<uint16_t*>(px_map);
 
         esp_err_t ret = ili9341_flush(area->x1, area->y1, area->x2, area->y2, px_data, pixel_count, 
-            [](void *user_data, esp_err_t ret) {
+            [](void* user_data, esp_err_t ret) {
                 auto display = static_cast<lv_display_t*>(user_data);
                 lv_disp_flush_ready(display);
 
@@ -240,7 +240,7 @@ namespace display {
 
         lv_obj_set_size(loading_bar, w, h);
         lv_bar_set_range(loading_bar, 0, 100);
-        lv_obj_align(loading_bar, LV_ALIGN_TOP_MID, 0, 300);
+        lv_obj_align(loading_bar, LV_ALIGN_TOP_MID, 0, 270);
         lv_bar_set_value(loading_bar, 0, LV_ANIM_ON);
 
         lv_scr_load(parent);
