@@ -46,14 +46,41 @@ namespace display {
     void update_screen_data(const sys::data_t& data);
 
     /**
-     * @brief Switch to next screen
+     * @brief Switches to next screen
      */
     void next_screen();
 
     /**
-     * @brief Switch to previous screen
+     * @brief Switches to previous screen
      */
     void prev_screen();
+
+    enum class ble_popup_t : uint8_t {
+        NO_EVENT = 0,
+        ACTIVATED,
+        DEACTIVATED,
+        ALREADY_ACTIVE,
+        ALREADY_INACTIVE,
+        ACTIVATION_FAILED,
+        DEACTIVATION_FAILED,
+        CLEAR_POPUPS
+    };
+
+    /**
+     * @brief Displays a popup screen for ble button events depending on current ble state
+     * 
+     * @param event BLE button event which occured
+     * 
+     * @return true if popup was displayed successfully, false otherwise or if an invalid parameter was passed
+     */
+    bool ble_popup(ble_popup_t event);
+
+    /**
+     * @brief Checks if there is a BLE popup active
+     * 
+     * @return true if a BLE popup is active
+     */
+    bool is_ble_popup_active();
 
 } // namespace display
 

@@ -58,8 +58,8 @@ static const char* TAG = "MAIN";
 #define AHT_TASK_PROFILING                                  0
 #define LOG_TASK_PROFILING                                  0
 #define CALC_TASK_PROFILING                                 0
-#define DISPLAY_TASK_PROFILING                              1
-#define LVGL_TASK_PROFILING                                 1
+#define DISPLAY_TASK_PROFILING                              0
+#define LVGL_TASK_PROFILING                                 0
 #define BLE_TASK_PROFILING                                  0
 
 
@@ -565,12 +565,13 @@ void display_task(void* arg) {
 
     // Get queue in which button events are passed
     QueueHandle_t btn_queue = button::get_queue();
-    ASSERT(btn_queue, "btn_queue cannot be nullptr");
+    ASSERT(btn_queue, "btn_queue cannot be null");
 
     // Initialize local variables being used
     button::event_t event = button::event_t::NO_EVENT;
     sys::data_t data{};
     esp_err_t ret = ESP_OK;
+    bool is_ble_active = false;
 
     // Arbitrary delay to allow the bootup screen flush properly before creating the UI
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -599,6 +600,15 @@ void display_task(void* arg) {
 
         // Check for button events
         if (xQueueReceive(btn_queue, &event, 0) == pdTRUE) {
+            
+            // Dismiss any popups that may have been active
+            if (display::is_ble_popup_active()) {
+                display::ble_popup(display::ble_popup_t::CLEAR_POPUPS);
+                // Do not register any button events if there is a popup
+                // that is active. Instead, clear the popup
+                break;
+            }
+
             switch (event) {
             // Load next screen
             case button::event_t::NEXT_BUTTON_PRESSED:
@@ -626,25 +636,37 @@ void display_task(void* arg) {
 
             // Start ble advertising
             case button::event_t::BLE_BUTTON_PRESSED:
+                if (is_ble_active) {
+                    LOGW("BLE already advertising");
+                    display::ble_popup(display::ble_popup_t::ALREADY_ACTIVE);
+                    break;
+                }
                 ret = ble::start();
                 if (ret == ESP_OK) {
                     LOGI("BLE advertsing started");
-                } else if (ret == ESP_ERR_INVALID_STATE) {
-                    LOGW("Device already advertising");
+                    display::ble_popup(display::ble_popup_t::ACTIVATED);
+                    is_ble_active = true;
                 } else {
                     LOGE("Failed to start BLE advertising: %s", esp_err_to_name(ret));
+                    display::ble_popup(display::ble_popup_t::ACTIVATION_FAILED);
                 }
                 break;
 
             // Stop ble advertising
             case button::event_t::BLE_LONG_PRESSED:
+                if (!is_ble_active) {
+                    LOGW("BLE advertising already unactive");
+                    display::ble_popup(display::ble_popup_t::ALREADY_INACTIVE);
+                    break;
+                }
                 ret = ble::stop();
                 if (ret == ESP_OK) {
                     LOGI("BLE advertsing stopped");
-                } else if (ret == ESP_ERR_INVALID_STATE) {
-                    LOGW("Device not advertising");
+                    display::ble_popup(display::ble_popup_t::DEACTIVATED);
+                    is_ble_active = false;
                 } else {
                     LOGE("Failed to stop BLE advertising: %s", esp_err_to_name(ret));
+                    display::ble_popup(display::ble_popup_t::DEACTIVATION_FAILED);
                 }
                 break;
 
@@ -659,7 +681,7 @@ void display_task(void* arg) {
         // Block till runtime_calc_task tells us we have fresh data to update the current screen
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(TIMEOUT_MS));
 
-        if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(TIMEOUT_MS * 2)) != pdTRUE) {
+        if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
             LOGW("Failed to take lvgl_display_mutex");
             continue;
         }

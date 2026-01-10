@@ -34,6 +34,9 @@ namespace display {
 
     // UI Screens
     static uint8_t current_screen_idx                       = 0;
+    static bool is_ble_popup_active_flag                    = false;
+    static lv_obj_t* ble_popup_handle                       = nullptr;
+    static constexpr uint32_t POPUP_TIMEOUT_US              = 2'500'000;
     
     // Display buffer for LVGL (32 lines worth of pixels)
     static constexpr size_t DISP_BUF_SIZE                   = config::LCD_WIDTH * 32;
@@ -44,6 +47,7 @@ namespace display {
 
     static lv_display_t* display                            = nullptr;
     static esp_timer_handle_t lvgl_tick_timer               = nullptr;
+    static esp_timer_handle_t ble_popup_close_timer         = nullptr;
     static ili9341_handle_t display_handle                  = nullptr;
     
     // Forward declarations
@@ -81,7 +85,26 @@ namespace display {
         ret = esp_timer_start_periodic(lvgl_tick_timer, 1000); // 1000us
         if (ret != ESP_OK) {
             DISP_LOGE("Failed to start LVGL tick timer: %s", esp_err_to_name(ret));
-            esp_timer_delete(lvgl_tick_timer);
+            deinit();
+            return ret;
+        }
+
+        constexpr esp_timer_create_args_t ble_popup_close_args = {
+            .callback = [](void* arg) {
+                if (ble_popup_handle) lv_msgbox_close(ble_popup_handle);
+                ble_popup_handle = nullptr;
+                is_ble_popup_active_flag = false;
+            },
+            .arg = nullptr,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "ble_popup_close_timer",
+            .skip_unhandled_events = false
+        };
+        
+        ret = esp_timer_create(&ble_popup_close_args, &ble_popup_close_timer);
+        if (ret != ESP_OK) {
+            DISP_LOGE("Failed to create ble_popup_close_timer: %s", esp_err_to_name(ret));
+            deinit();
             return ret;
         }
 
@@ -100,6 +123,17 @@ namespace display {
             esp_timer_stop(lvgl_tick_timer);
             esp_timer_delete(lvgl_tick_timer);
             lvgl_tick_timer = nullptr;
+        }
+
+        if (ble_popup_close_timer) {
+            esp_timer_stop(ble_popup_close_timer);
+            esp_timer_delete(ble_popup_close_timer);
+            ble_popup_close_timer = nullptr;
+        }
+
+        if (ble_popup_handle) {
+            lv_msgbox_close(ble_popup_handle);
+            ble_popup_handle = nullptr;
         }
 
         for (auto& screen : screens) {
@@ -208,6 +242,97 @@ namespace display {
         lv_scr_load(screens[current_screen_idx]);
 
         DISP_LOGI("Switched to screen %d", current_screen_idx);
+    }
+
+    bool ble_popup(ble_popup_t event) {
+
+        bool ret = true;
+        is_ble_popup_active_flag = true;
+
+        switch (event) {
+        case ble_popup_t::ACTIVATED:
+            if (ble_popup_handle) {
+                lv_msgbox_close(ble_popup_handle);
+                ble_popup_handle = nullptr;
+            }
+            ble_popup_handle = lv_msgbox_create(lv_scr_act());
+            lv_msgbox_add_title(ble_popup_handle, "BLE activated!");
+            lv_msgbox_add_text(ble_popup_handle, "You can now be found and connect with other BLE devices");
+            esp_timer_start_once(ble_popup_close_timer, POPUP_TIMEOUT_US);
+            break;
+
+        case ble_popup_t::DEACTIVATED:
+            if (ble_popup_handle) {
+                lv_msgbox_close(ble_popup_handle);
+                ble_popup_handle = nullptr;
+            }
+            ble_popup_handle = lv_msgbox_create(lv_scr_act());
+            lv_msgbox_add_title(ble_popup_handle, "BLE deactivated!");
+            lv_msgbox_add_text(ble_popup_handle, "You can no longer be found or connect with other BLE devices");
+            esp_timer_start_once(ble_popup_close_timer, POPUP_TIMEOUT_US);
+            break;
+
+        case ble_popup_t::ALREADY_ACTIVE:
+            if (ble_popup_handle) {
+                lv_msgbox_close(ble_popup_handle);
+                ble_popup_handle = nullptr;
+            }
+            ble_popup_handle = lv_msgbox_create(lv_scr_act());
+            lv_msgbox_add_title(ble_popup_handle, "BLE already activce!");
+            esp_timer_start_once(ble_popup_close_timer, POPUP_TIMEOUT_US);
+            break;
+
+        case ble_popup_t::ALREADY_INACTIVE:
+            if (ble_popup_handle) {
+                lv_msgbox_close(ble_popup_handle);
+                ble_popup_handle = nullptr;
+            }
+            ble_popup_handle = lv_msgbox_create(lv_scr_act());
+            lv_msgbox_add_title(ble_popup_handle, "BLE already inactive!");
+            esp_timer_start_once(ble_popup_close_timer, POPUP_TIMEOUT_US);
+            break;
+
+        case ble_popup_t::ACTIVATION_FAILED:
+            if (ble_popup_handle) {
+                lv_msgbox_close(ble_popup_handle);
+                ble_popup_handle = nullptr;
+            }
+            ble_popup_handle = lv_msgbox_create(lv_scr_act());
+            lv_msgbox_add_title(ble_popup_handle, "BLE activation failed!");
+            lv_msgbox_add_text(ble_popup_handle, "BLE activation failed for an unknown reason. Please try again");
+            esp_timer_start_once(ble_popup_close_timer, POPUP_TIMEOUT_US);
+            break;
+
+        case ble_popup_t::DEACTIVATION_FAILED:
+            if (ble_popup_handle) {
+                lv_msgbox_close(ble_popup_handle);
+                ble_popup_handle = nullptr;
+            }
+            ble_popup_handle = lv_msgbox_create(lv_scr_act());
+            lv_msgbox_add_title(ble_popup_handle, "BLE deactivated failed!");
+            lv_msgbox_add_text(ble_popup_handle, "BLE deactivation failed for an unknown reason. Please try again");
+            esp_timer_start_once(ble_popup_close_timer, POPUP_TIMEOUT_US);
+            break;
+
+        case ble_popup_t::CLEAR_POPUPS:
+            if (ble_popup_handle) {
+                lv_msgbox_close(ble_popup_handle);
+                ble_popup_handle = nullptr;
+            }
+            is_ble_popup_active_flag = false;
+            break;
+
+        default:
+            DISP_LOGW("Invalid BLE popup event: %u", static_cast<uint8_t>(event));
+            ret = false;
+            break;
+        }
+
+        return ret;
+    }
+
+    bool is_popup_active() {
+        return is_ble_popup_active_flag;
     }
 
     // Helper Functions
