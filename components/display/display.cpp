@@ -20,7 +20,7 @@
 #define DIS_DEBUG 1
 
 #if DIS_DEBUG == 1
-static const char* TAG = "DISPLAY";
+static constexpr const char* TAG = "DISPLAY";
 #define DISP_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
 #define DISP_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
 #define DISP_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
@@ -54,8 +54,8 @@ namespace display {
     static constexpr uint16_t DISP_BOOTUP_SCREEN_TIME_MS    = 2500;
     
     // LVGL buffers
-    static std::array<uint16_t, DISP_BUF_SIZE> buf1{};
-    static std::array<uint16_t, DISP_BUF_SIZE> buf2{};
+    static std::array<lv_color_t, DISP_BUF_SIZE> buf1{};
+    static std::array<lv_color_t, DISP_BUF_SIZE> buf2{};
 
     // General utilities
     static lv_display_t* display                            = nullptr;
@@ -163,7 +163,7 @@ namespace display {
 
         display = lv_display_create(config::LCD_WIDTH, config::LCD_HEIGHT);
         lv_display_set_buffers(display, buf1.data(), buf2.data(), sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
-        lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
+        // lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
         lv_display_set_flush_cb(display, disp_flush_cb);
         
         // LVGL tick timer: required by LVGL
@@ -212,8 +212,8 @@ namespace display {
             return ret;
         }
 
-        // Alert popup auto dismiss timer: calls `show_next_alert()` to advance the queue
-        // and closes whichever alert popup that was active
+        // Alert popup auto dismiss timer: calls `show_next_alert()` to advance
+        // the queue and closes whichever alert popup that was active
         constexpr esp_timer_create_args_t alert_popup_close_args = {
             .callback = [](void* arg) {
                 if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(DISP_MUTEX_TIMEOUT_MS)) != pdTRUE) return;
@@ -327,10 +327,10 @@ namespace display {
         // Cleanup bootup screen resources
         // The children get auto deleted when
         // the parent screen is deleted
-        if (bootup_scr) {
-            lv_obj_del(bootup_scr);
-            bootup_scr = nullptr;
-        }
+        // if (bootup_scr) {
+        //     lv_obj_del(bootup_scr);
+        //     bootup_scr = nullptr;
+        // }
 
         DISP_LOGI("UI created");
     }
@@ -361,12 +361,12 @@ namespace display {
             break;
         }
 
-        // alert_handle_t alerts(data);
+        alert_handle_t alerts(data);
 
-        // if (alerts.check_set_alerts()) {
-        //     alerts.display_warnings_if_alerts();
-        //     show_next_alert();
-        // }
+        if (alerts.check_set_alerts()) {
+            alerts.display_warnings_if_alerts();
+            show_next_alert();
+        }
     }
 
     void next_screen() {

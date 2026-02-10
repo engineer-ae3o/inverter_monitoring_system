@@ -608,73 +608,74 @@ static void queue_and_mutex_create() {
         // Dismiss any popups that may have been active
         // Do not register any button events if a popup
         // was active. Instead, only clear the popup
-        if (display::is_ble_popup_active()) {
-            display::ble_popup(display::ble_popup_t::CLEAR_POPUPS);
-            
-        } else if (xQueueReceive(btn_queue, &event, 0) == pdTRUE) {
-            switch (event) {
-            // Load next screen
-            case button::event_t::NEXT_BUTTON_PRESSED:
-                LOGI("NEXT button pressed");
-                display::next_screen();
-                break;
-
-            // Load previous screen
-            case button::event_t::PREV_BUTTON_PRESSED:
-                LOGI("PREV button pressed");
-                display::prev_screen();
-                break;
-
-            // Load graph screen for voltage and current
-            case button::event_t::NEXT_LONG_PRESSED:
-                display::pow_graph_screen();
-                LOGI("NEXT button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1'000'000));
-                break;
-
-            // Load graph screen for temperature and humidity
-            case button::event_t::PREV_LONG_PRESSED:
-                display::env_graph_screen();
-                LOGI("PREV button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1'000'000));
-                break;
-
-            // Start ble advertising
-            case button::event_t::BLE_BUTTON_PRESSED:
-                if (is_ble_active) {
-                    LOGW("BLE already advertising");
-                    display::ble_popup(display::ble_popup_t::ALREADY_ACTIVE);
+        if (xQueueReceive(btn_queue, &event, 0) == pdTRUE) {
+            if (display::is_ble_popup_active()) {
+                display::ble_popup(display::ble_popup_t::CLEAR_POPUPS); 
+            } else {
+                switch (event) {
+                // Load next screen
+                case button::event_t::NEXT_BUTTON_PRESSED:
+                    LOGI("NEXT button pressed");
+                    display::next_screen();
                     break;
-                }
-                ret = ble::start();
-                if (ret == ESP_OK) {
-                    LOGI("BLE advertsing started");
-                    display::ble_popup(display::ble_popup_t::ACTIVATED);
-                    is_ble_active = true;
-                } else {
-                    LOGE("Failed to start BLE advertising: %s", esp_err_to_name(ret));
-                    display::ble_popup(display::ble_popup_t::ACTIVATION_FAILED);
-                }
-                break;
 
-            // Stop ble advertising
-            case button::event_t::BLE_LONG_PRESSED:
-                if (!is_ble_active) {
-                    LOGW("BLE advertising already inactive");
-                    display::ble_popup(display::ble_popup_t::ALREADY_INACTIVE);
+                // Load previous screen
+                case button::event_t::PREV_BUTTON_PRESSED:
+                    LOGI("PREV button pressed");
+                    display::prev_screen();
                     break;
-                }
-                ret = ble::stop();
-                if (ret == ESP_OK) {
-                    LOGI("BLE advertsing stopped");
-                    display::ble_popup(display::ble_popup_t::DEACTIVATED);
-                    is_ble_active = false;
-                } else {
-                    LOGE("Failed to stop BLE advertising: %s", esp_err_to_name(ret));
-                    display::ble_popup(display::ble_popup_t::DEACTIVATION_FAILED);
-                }
-                break;
 
-            default:
-                LOGW("Unknown button event");
+                // Load graph screen for voltage and current
+                case button::event_t::NEXT_LONG_PRESSED:
+                    display::pow_graph_screen();
+                    LOGI("NEXT button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1'000'000));
+                    break;
+
+                // Load graph screen for temperature and humidity
+                case button::event_t::PREV_LONG_PRESSED:
+                    display::env_graph_screen();
+                    LOGI("PREV button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1'000'000));
+                    break;
+
+                // Start ble advertising
+                case button::event_t::BLE_BUTTON_PRESSED:
+                    if (is_ble_active) {
+                        LOGW("BLE already advertising");
+                        display::ble_popup(display::ble_popup_t::ALREADY_ACTIVE);
+                        break;
+                    }
+                    ret = ble::start();
+                    if (ret == ESP_OK) {
+                        LOGI("BLE advertsing started");
+                        display::ble_popup(display::ble_popup_t::ACTIVATED);
+                        is_ble_active = true;
+                    } else {
+                        LOGE("Failed to start BLE advertising: %s", esp_err_to_name(ret));
+                        display::ble_popup(display::ble_popup_t::ACTIVATION_FAILED);
+                    }
+                    break;
+
+                // Stop ble advertising
+                case button::event_t::BLE_LONG_PRESSED:
+                    if (!is_ble_active) {
+                        LOGW("BLE advertising already inactive");
+                        display::ble_popup(display::ble_popup_t::ALREADY_INACTIVE);
+                        break;
+                    }
+                    ret = ble::stop();
+                    if (ret == ESP_OK) {
+                        LOGI("BLE advertsing stopped");
+                        display::ble_popup(display::ble_popup_t::DEACTIVATED);
+                        is_ble_active = false;
+                    } else {
+                        LOGE("Failed to stop BLE advertising: %s", esp_err_to_name(ret));
+                        display::ble_popup(display::ble_popup_t::DEACTIVATION_FAILED);
+                    }
+                    break;
+
+                default:
+                    LOGW("Unknown button event");
+                }
             }
         }
         

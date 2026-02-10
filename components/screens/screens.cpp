@@ -1,6 +1,8 @@
 #include "screens.hpp"
 #include "colors.hpp"
 
+#include "esp_log.h"
+
 
 namespace display {
 
@@ -260,8 +262,8 @@ namespace display {
 
         // Scale labels at threshold positions mapped to bar
         // 6V  → 0px,  9V  → (9-6)/6.6*216 = 98px,  10.5V → (10.5-6)/6.6*216 = 147px,  12.6V → 216px
-        static constexpr char* v_scale_txt[] = { "6V", "9V", "10.5V", "12.6V" };
-        static constexpr uint16_t v_scale_x[]   = { 8,   106,  155, 12 };
+        static constexpr const char* v_scale_txt[] = { "6V", "9V", "10.5V", "12.6V" };
+        static constexpr const uint16_t v_scale_x[]   = { 8,   106,  155, 12 };
         for (uint8_t i = 0; i < 4; i++) {
             lv_obj_t* sl = lv_label_create(volt);
             lv_label_set_text(sl, v_scale_txt[i]);
@@ -331,8 +333,8 @@ namespace display {
         lv_obj_set_pos(label_s1_current_tick, 8, 24);
 
         // Scale: 0A at 0px, 20A at 173px, 25A at 216px
-        static const char*    i_scale_txt[] = { "0A", "20A", "25A" };
-        static const uint16_t i_scale_x[]   = { 8,   181,   212 };
+        static constexpr const char*    i_scale_txt[] = { "0A", "20A", "25A" };
+        static constexpr const uint16_t i_scale_x[]   = { 8,   181,   212 };
         for (uint8_t i = 0; i < 3; i++) {
             lv_obj_t* sl = lv_label_create(cur);
             lv_label_set_text(sl, i_scale_txt[i]);
@@ -449,8 +451,8 @@ namespace display {
         lv_obj_set_pos(label_s2_temp_tick, 8, 26);
 
         // Scale: 0°C = 0px, 10°C = 36px, 45°C = 162px, 60°C = 216px
-        static constexpr char* ts_txt[] = { "0°C", "10°C", "45°C", "60°C" };
-        static constexpr uint16_t ts_x[] = { 8, 44, 162, 212 };
+        static constexpr const char* ts_txt[] = { "0°C", "10°C", "45°C", "60°C" };
+        static constexpr const uint16_t ts_x[] = { 8, 44, 162, 212 };
         for (uint8_t i = 0; i < 4; i++) {
             lv_obj_t* sl = lv_label_create(tp);
             lv_label_set_text(sl, ts_txt[i]);
