@@ -1,0 +1,6 @@
+# Partition table to enable use of the flash
+# Name,      Type,  Subtype,  Offset,   Size,    Flags
+  nvs,       data,  nvs,      0x9000,   0x20000,
+  phy_init,  data,  phy,      ,         0x10000,
+  factory,   app,   factory,  ,         0x180000,
+  storage,   data,  littlefs, ,         0x180000,
