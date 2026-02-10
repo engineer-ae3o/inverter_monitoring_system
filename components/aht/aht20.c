@@ -11,18 +11,35 @@
 #include "esp_timer.h"
 
 
-#define AHT_DEBUG 0
+// Debug logging levels
+#define AHT_LOG_LEVEL_INFO 3
+#define AHT_LOG_LEVEL_WARN 2
+#define AHT_LOG_LEVEL_ERROR 1
+#define AHT_LOG_LEVEL_NONE 0
 
-// Enable debug logging by setting AHT_DEBUG to 1 in your build
-#if AHT_DEBUG == 1
+// Set the log level to any appropriate log level
+#define AHT_DEBUG_LEVEL AHT_LOG_LEVEL_WARN
 static const char* TAG = "AHT";
-#define AHT_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
-#define AHT_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+
+#if AHT_DEBUG_LEVEL == AHT_LOG_LEVEL_INFO
 #define AHT_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
-#else
+#define AHT_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+#define AHT_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
+
+#elif AHT_DEBUG_LEVEL == AHT_LOG_LEVEL_WARN
+#define AHT_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
+#define AHT_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
 #define AHT_LOGI(...)
+
+#elif AHT_DEBUG_LEVEL == AHT_LOG_LEVEL_ERROR
+#define AHT_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
 #define AHT_LOGW(...)
+#define AHT_LOGI(...)
+
+#elif AHT_DEBUG_LEVEL == AHT_LOG_LEVEL_NONE
 #define AHT_LOGE(...)
+#define AHT_LOGW(...)
+#define AHT_LOGI(...)
 #endif
 
 

@@ -5,17 +5,35 @@
 #include <cstring>
 
 
-#define ADC_DEBUG 0
+// Debug logging levels
+#define ADC_LOG_LEVEL_INFO 3
+#define ADC_LOG_LEVEL_WARN 2
+#define ADC_LOG_LEVEL_ERROR 1
+#define ADC_LOG_LEVEL_NONE 0
 
-#if ADC_DEBUG == 1
-static const char* TAG = "ADC";
-#define ADC_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
-#define ADC_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+// Set the log level to any appropriate log level
+#define ADC_LOG_LEVEL ADC_LOG_LEVEL_WARN
+static constexpr const char* TAG = "ADC";
+
+#if ADC_LOG_LEVEL == ADC_LOG_LEVEL_INFO
 #define ADC_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
-#else
+#define ADC_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+#define ADC_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
+
+#elif ADC_LOG_LEVEL == ADC_LOG_LEVEL_WARN
+#define ADC_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
+#define ADC_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
 #define ADC_LOGI(...)
+
+#elif ADC_LOG_LEVEL == ADC_LOG_LEVEL_ERROR
+#define ADC_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
 #define ADC_LOGW(...)
+#define ADC_LOGI(...)
+
+#elif ADC_LOG_LEVEL == ADC_LOG_LEVEL_NONE
 #define ADC_LOGE(...)
+#define ADC_LOGW(...)
+#define ADC_LOGI(...)
 #endif
 
 

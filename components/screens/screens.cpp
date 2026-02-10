@@ -86,10 +86,13 @@ namespace display {
     void create_screen_0() {
 
         screens[0] = lv_obj_create(nullptr);
+        ASSERT_(screens[0]);
         lv_obj_set_style_bg_color(screens[0], lv_color_hex(color::BLACK), 0);
 
         // Title
         lv_obj_t* title = lv_label_create(screens[0]);
+        ASSERT_(title);
+
         lv_label_set_text(title, "STATUS");
         lv_obj_set_style_text_color(title, lv_color_hex(color::CYAN), 0);
         lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 5);
@@ -97,8 +100,8 @@ namespace display {
         // 4 status cards
         // 240px wide, 4px outer margin each side, 4px gap between cards
         // card_w = (240 - 4*2 - 4*3) / 4 = (232 - 12)/4 = 55 → use 54 for breathing room
-        static const uint16_t card_x[4]  = { 4, 62, 120, 178 };
-        static const char*    card_name[4] = { "BATT", "INV", "TEMP", "HMDT" };
+        static constexpr const uint16_t card_x[4] = { 4, 62, 120, 178 };
+        static constexpr const char* card_name[4] = { "BATT", "INV", "TEMP", "HMDT" };
 
         lv_obj_t* badges[4]{};
         lv_obj_t* values[4]{};
@@ -126,10 +129,17 @@ namespace display {
             lv_obj_align(values[i], LV_ALIGN_TOP_MID, 0, 40);
         }
 
-        label_s0_batt_badge = badges[0];   label_s0_batt_value = values[0];
-        label_s0_inv_badge  = badges[1];   label_s0_inv_value  = values[1];
-        label_s0_temp_badge = badges[2];   label_s0_temp_value = values[2];
-        label_s0_hmdt_badge = badges[3];   label_s0_hmdt_value = values[3];
+        label_s0_batt_badge = badges[0];
+        label_s0_batt_value = values[0];
+        
+        label_s0_inv_badge  = badges[1];
+        label_s0_inv_value  = values[1];
+        
+        label_s0_temp_badge = badges[2];
+        label_s0_temp_value = values[2];
+        
+        label_s0_hmdt_badge = badges[3];
+        label_s0_hmdt_value = values[3];
 
         // Live values panel
         lv_obj_t* live = create_panel(screens[0], 4, 98, 232, 88);
@@ -141,9 +151,9 @@ namespace display {
         lv_obj_align(live_hdr, LV_ALIGN_TOP_MID, 0, 4);
 
         // 3 columns
-        static const uint16_t col_x[3]    = { 10, 88, 166 };
-        static const char*    col_name[3] = { "Voltage", "Current", "Power" };
-        static const char*    col_unit[3] = { "V", "A", "W" };
+        static constexpr const uint16_t col_x[3] = { 10, 88, 166 };
+        static constexpr const char* col_name[3] = { "Voltage", "Current", "Power" };
+        static constexpr const char* col_unit[3] = { "V", "A", "W" };
         lv_obj_t* val_lbls[3]{};
 
         for (uint8_t i = 0; i < 3; i++) {
@@ -173,8 +183,8 @@ namespace display {
         // Bottom row
         lv_obj_t* bot = create_panel(screens[0], 4, 192, 232, 52);
 
-        static const uint16_t bot_x[3]   = { 10, 88, 166 };
-        static const char*    bot_hdr[3] = { "Runtime", "Battery", "Inverter" };
+        static constexpr const uint16_t bot_x[3] = { 10, 88, 166 };
+        static constexpr const char* bot_hdr[3] = { "Runtime", "Battery", "Inverter" };
         lv_obj_t* bot_vals[3]{};
 
         for (uint8_t i = 0; i < 3; i++) {
@@ -396,6 +406,7 @@ namespace display {
 
         lv_obj_t* tp_hdr = lv_label_create(tp);
         ASSERT(tp_hdr, "Failed to create tp_hdr");
+
         lv_label_set_text(tp_hdr, "TEMPERATURE");
         lv_obj_set_style_text_color(tp_hdr, lv_color_hex(color::GREY), 0);
         lv_obj_set_style_text_font(tp_hdr, &lv_font_montserrat_10, 0);
@@ -909,7 +920,7 @@ namespace display {
         char buf[64]{};
 
         // Hero
-        snprintf(buf, sizeof(buf) - 1, "%.1fW", data.power_drawn);
+        snprintf(buf, sizeof(buf) - 1, "%.2fW", data.power_drawn);
         lv_label_set_text(label_s1_power_hero, buf);
 
         // Voltage bar: 6.0V..12.6V → 0..216px
@@ -917,9 +928,10 @@ namespace display {
         lv_label_set_text(label_s1_voltage_val, buf);
 
         float v = data.battery_voltage;
+        // Clamp voltage
         if (v < 6.0f)  v = 6.0f;
         if (v > 12.6f) v = 12.6f;
-        uint16_t v_px = (uint16_t)(((v - 6.0f) / 6.6f) * 216.0f);
+        int32_t v_px = (int32_t)(((v - 6.0f) / 6.6f) * 216.0f);
         lv_obj_set_width(bar_s1_voltage_fill, v_px);
         lv_obj_set_x(label_s1_voltage_tick, 8 + (v_px > 3 ? v_px - 3 : 0));
 
@@ -928,9 +940,10 @@ namespace display {
         lv_label_set_text(label_s1_current_val, buf);
 
         float ic = data.load_current_drawn;
+        // Clamp current
         if (ic < 0.0f)  ic = 0.0f;
         if (ic > 25.0f) ic = 25.0f;
-        uint16_t i_px = (uint16_t)((ic / 25.0f) * 216.0f);
+        int32_t i_px = (int32_t)((ic / 25.0f) * 216.0f);
         lv_obj_set_width(bar_s1_current_fill, i_px);
 
         // Fill color tracks which zone the value is in
@@ -941,7 +954,7 @@ namespace display {
         } else {
             lv_obj_set_style_bg_color(bar_s1_current_fill, lv_color_hex(color::GREEN), 0);
         }
-        lv_obj_set_x(label_s1_current_tick, 8 + (i_px > 3 ? i_px - 3 : 0));
+        lv_obj_set_x(label_s1_current_tick, 8 + ((i_px > 3) ? (i_px - 3) : 0));
 
         // Status
         snprintf(buf, sizeof(buf) - 1, "%s", sys::inv_status_to_string(data.inv_status));
@@ -962,7 +975,7 @@ namespace display {
         float t = data.inv_temp;
         if (t < 0.0f)  t = 0.0f;
         if (t > 60.0f) t = 60.0f;
-        uint16_t t_px = (uint16_t)((t / 60.0f) * 216.0f);
+        int32_t t_px = (int32_t)((t / 60.0f) * 216.0f);
         lv_obj_set_width(bar_s2_temp_fill, t_px);
 
         if (t >= 45.0f) {
@@ -987,7 +1000,7 @@ namespace display {
         float h = data.inv_hmdt;
         if (h < 0.0f)   h = 0.0f;
         if (h > 100.0f) h = 100.0f;
-        uint16_t h_px = (uint16_t)((h / 100.0f) * 216.0f);
+        int32_t h_px = (int32_t)((h / 100.0f) * 216.0f);
         lv_obj_set_width(bar_s2_hmdt_fill, h_px);
 
         if (h >= 70.0f) {

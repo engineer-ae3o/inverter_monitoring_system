@@ -22,17 +22,35 @@
 #include <array>
 
 
-#define BLE_DEBUG 0
+// Debug logging levels
+#define BLE_LOG_LEVEL_INFO 3
+#define BLE_LOG_LEVEL_WARN 2
+#define BLE_LOG_LEVEL_ERROR 1
+#define BLE_LOG_LEVEL_NONE 0
 
-#if BLE_DEBUG == 1
-static const char* TAG = "BLE";
-#define BLE_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
-#define BLE_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+// Set the log level to any appropriate log level
+#define BLE_LOG_LEVEL BLE_LOG_LEVEL_WARN
+static constexpr const char* TAG = "BLE";
+
+#if BLE_LOG_LEVEL == BLE_LOG_LEVEL_INFO
 #define BLE_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
-#else 
+#define BLE_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+#define BLE_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
+
+#elif BLE_LOG_LEVEL == BLE_LOG_LEVEL_WARN
+#define BLE_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
+#define BLE_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
 #define BLE_LOGI(...)
+
+#elif BLE_LOG_LEVEL == BLE_LOG_LEVEL_ERROR
+#define BLE_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
 #define BLE_LOGW(...)
+#define BLE_LOGI(...)
+
+#elif BLE_LOG_LEVEL == BLE_LOG_LEVEL_NONE
 #define BLE_LOGE(...)
+#define BLE_LOGW(...)
+#define BLE_LOGI(...)
 #endif
 
 
@@ -152,21 +170,21 @@ namespace ble {
 
 
     // Device name
-    static constexpr const char BLE_GAP_NAME[]                       = "Batt-Monitor";
+    static constexpr const char BLE_GAP_NAME[]               = "Batt-Monitor";
 
     // 16 bit UUIDs for all services and characteristics
-    static constexpr ble_uuid16_t AHT_SERVICE_UUID                   = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x181A };
-    static constexpr ble_uuid16_t TEMPERATURE_CHAR_UUID              = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A6E };
-    static constexpr ble_uuid16_t HUMIDITY_CHAR_UUID                 = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A6F };
+    static constexpr ble_uuid16_t AHT_SERVICE_UUID           = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x181A };
+    static constexpr ble_uuid16_t TEMPERATURE_CHAR_UUID      = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A6E };
+    static constexpr ble_uuid16_t HUMIDITY_CHAR_UUID         = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A6F };
 
-    static constexpr ble_uuid16_t ADC_SERVICE_UUID                   = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x181F };
-    static constexpr ble_uuid16_t VOLTAGE_CHAR_UUID                  = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2B18 };
-    static constexpr ble_uuid16_t CURRENT_CHAR_UUID                  = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2AEE };
-    static constexpr ble_uuid16_t POWER_CHAR_UUID                    = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2B05 };
+    static constexpr ble_uuid16_t ADC_SERVICE_UUID           = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x181F };
+    static constexpr ble_uuid16_t VOLTAGE_CHAR_UUID          = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2B18 };
+    static constexpr ble_uuid16_t CURRENT_CHAR_UUID          = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2AEE };
+    static constexpr ble_uuid16_t POWER_CHAR_UUID            = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2B05 };
 
-    static constexpr ble_uuid16_t BATTERY_SERVICE_UUID               = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x180F };
-    static constexpr ble_uuid16_t SoC_CHAR_UUID                      = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A19 };
-    static constexpr ble_uuid16_t RUNTIME_CHAR_UUID                  = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2B2E };
+    static constexpr ble_uuid16_t BATTERY_SERVICE_UUID       = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x180F };
+    static constexpr ble_uuid16_t SoC_CHAR_UUID              = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2A19 };
+    static constexpr ble_uuid16_t RUNTIME_CHAR_UUID          = { .u = { .type = BLE_UUID_TYPE_16 }, .value = 0x2B2E };
 
 
     // Forward declarations

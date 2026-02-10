@@ -58,8 +58,8 @@ namespace display {
     void prev_screen();
 
     struct graph_samples_t {
-        std::array<float, config::GRAPH_SAMPLES>& first;
-        std::array<float, config::GRAPH_SAMPLES>& second;
+        std::array<float, config::GRAPH_SAMPLES> first;
+        std::array<float, config::GRAPH_SAMPLES> second;
     };
 
     /**
@@ -118,7 +118,7 @@ namespace display {
      * 
      * @param[in] entry The alert to enqueue
      */
-    void push_alert(entry_t entry);
+    void push_alert(const entry_t& entry);
 
 } // namespace display
 

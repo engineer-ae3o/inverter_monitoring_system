@@ -12,7 +12,7 @@
 
 namespace sys {
 
-    const char* inv_status_to_string(const inv_status_t& status) {
+    const char* inv_status_to_string(inv_status_t status) {
         switch (status) {
             case inv_status_t::IDLE: return "IDLE";
             case inv_status_t::ACTIVE: return "ACTIVE";
@@ -20,7 +20,7 @@ namespace sys {
         }
     }
 
-    const char* batt_status_to_string(const batt_status_t& status) {
+    const char* batt_status_to_string(batt_status_t status) {
         switch (status) {
             case batt_status_t::IDLE: return "IDLE";
             case batt_status_t::DISCHARGING: return "IN USE";
@@ -36,6 +36,7 @@ namespace sys {
         // Copy temperature and humidity values
         final.inv_temp = aht_data.temperature;
         final.inv_hmdt = aht_data.humidity;
+
         // Range validation for the temperature and humidity
         if (final.inv_temp > 85.0f || final.inv_temp < -40.0f) {
             return false;
@@ -53,6 +54,7 @@ namespace sys {
         final.battery_voltage = power_data.voltage_avg;
         final.load_current_drawn = power_data.current_avg;
         final.power_drawn = power_data.apparent_power;
+
         // Range validation for the voltage and curent
         if (final.battery_voltage > 16.0f || final.battery_voltage < 0.0f) {
             return false;
@@ -62,7 +64,9 @@ namespace sys {
         }
 
         // Calculate battery percentage
-        final.battery_percent = (final.battery_voltage - config::BATT_ZERO_PERCENT_VOLTAGE) / (config::BATT_MAX_PERCENT_VOLTAGE - config::BATT_ZERO_PERCENT_VOLTAGE) * 100.0f;
+        final.battery_percent = (final.battery_voltage - config::BATT_ZERO_PERCENT_VOLTAGE) /                               \
+                                (config::BATT_MAX_PERCENT_VOLTAGE - config::BATT_ZERO_PERCENT_VOLTAGE) * 100.0f;
+        
         // Clamp battery percent to known values if above or below the threshold for battery soc
         if (final.battery_percent > 100.0f) {
             final.battery_percent = 100.0f;
@@ -94,6 +98,7 @@ namespace sys {
 
             final.runtime_left_s = charge_time_hrs * 3600; // Convert to seconds
         }
+        
         // Calculate estimated runtime left if battery is not recharging
         else if ((final.batt_status == batt_status_t::DISCHARGING || final.batt_status == batt_status_t::IDLE) && (final.load_current_drawn != 0.0f)) {
             float remaining_capacity_ah = config::BATTERY_CAPACITY_AH * (final.battery_percent / 100.0f);
@@ -114,10 +119,11 @@ namespace sys {
         return true;
     }
 
-    void handle_error(void) {
+    [[noreturn]] void handle_error(void) {
         ESP_LOGE("ERROR", "Non recoverable error occured. Rebooting system");
         vTaskDelay(pdMS_TO_TICKS(20)); // Delay to allow logs to flush
         esp_restart();
+        while (1);
     }
 
 } // namespace sys

@@ -1,25 +1,29 @@
 #ifndef _COLORS_HPP_
 #define _COLORS_HPP_
 
+
 #include <cstdint>
 
 namespace color {
-    // RGB565 format: RRRRRGGGGGGBBBBB
-    constexpr inline uint16_t RED          = 0xF800;
-    constexpr inline uint16_t ORANGE       = 0xFC00;
-    constexpr inline uint16_t YELLOW       = 0xFFE0;
-    constexpr inline uint16_t GREEN        = 0x07E0;
-    constexpr inline uint16_t BLUE         = 0x001F;
-    constexpr inline uint16_t INDIGO       = 0x4810;
-    constexpr inline uint16_t VIOLET       = 0x8010;
-    constexpr inline uint16_t CYAN         = 0x07FF;
-    constexpr inline uint16_t DARK_BLUE    = 0x001F;
-    constexpr inline uint16_t WHITE        = 0xFFFF;
-    constexpr inline uint16_t BLACK        = 0x0000;
-    constexpr inline uint16_t GREY         = 0x7BEF;
-    constexpr inline uint16_t DARK_GREY    = 0x294A;
-    constexpr inline uint16_t OFF_WHITE    = 0xE71C;
+
+    // RGB888 format
+    constexpr inline uint32_t RED          = 0xFF0000;
+    constexpr inline uint32_t ORANGE       = 0xFF8000;
+    constexpr inline uint32_t YELLOW       = 0xFFFF00;
+    constexpr inline uint32_t GREEN        = 0x00FF00;
+    constexpr inline uint32_t BLUE         = 0x0000FF;
+    constexpr inline uint32_t INDIGO       = 0x4B0082;
+    constexpr inline uint32_t VIOLET       = 0x8A2BE2;
+    constexpr inline uint32_t PURPLE       = 0x800080;
+    constexpr inline uint32_t CYAN         = 0x00FFFF;
+    constexpr inline uint32_t DARK_BLUE    = 0x00008B;
+    constexpr inline uint32_t WHITE        = 0xFFFFFF;
+    constexpr inline uint32_t BLACK        = 0x000000;
+    constexpr inline uint32_t GREY         = 0x7F7F7F;
+    constexpr inline uint32_t DARK_GREY    = 0x404040;
+    constexpr inline uint32_t OFF_WHITE    = 0xF0F0F0;
 
 } // namespace color
+
 
 #endif // _COLORS_HPP_

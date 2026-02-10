@@ -6,18 +6,35 @@
 #include <string.h>
 
 
-// Debug configuration
-#define ILI_DEBUG 0
+// Debug logging levels
+#define ILI_LOG_LEVEL_INFO 3
+#define ILI_LOG_LEVEL_WARN 2
+#define ILI_LOG_LEVEL_ERROR 1
+#define ILI_LOG_LEVEL_NONE 0
 
-#if ILI_DEBUG == 1
+// Set the log level to any appropriate log level
+#define ILI_LOG_LEVEL ILI_LOG_LEVEL_WARN
 static const char* TAG = "ILI9341";
-#define ILI_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
-#define ILI_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+
+#if ILI_LOG_LEVEL == ILI_LOG_LEVEL_INFO
 #define ILI_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
-#else
+#define ILI_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+#define ILI_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
+
+#elif ILI_LOG_LEVEL == ILI_LOG_LEVEL_WARN
+#define ILI_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
+#define ILI_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
 #define ILI_LOGI(...)
+
+#elif ILI_LOG_LEVEL == ILI_LOG_LEVEL_ERROR
+#define ILI_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
 #define ILI_LOGW(...)
+#define ILI_LOGI(...)
+
+#elif ILI_LOG_LEVEL == ILI_LOG_LEVEL_NONE
 #define ILI_LOGE(...)
+#define ILI_LOGW(...)
+#define ILI_LOGI(...)
 #endif
 
 

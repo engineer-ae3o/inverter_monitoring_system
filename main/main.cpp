@@ -725,6 +725,7 @@ static void queue_create() {
 
         if (xQueuePeek(final_data_queue, &data, pdMS_TO_TICKS(BLE_TASK_PERIOD_MS)) != pdTRUE) {
             LOGW("Failed to receive data from final_data_queue (ble_task)");
+            vTaskDelay(pdMS_TO_TICKS(BLE_TASK_PERIOD_MS));
             continue;
         }
 

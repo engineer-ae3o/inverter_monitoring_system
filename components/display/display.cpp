@@ -17,17 +17,35 @@
 #include <cstdint>
 
 
-#define DIS_DEBUG 1
+// Debug logging levels
+#define DISP_LOG_LEVEL_INFO 3
+#define DISP_LOG_LEVEL_WARN 2
+#define DISP_LOG_LEVEL_ERROR 1
+#define DISP_LOG_LEVEL_NONE 0
 
-#if DIS_DEBUG == 1
+// Set the log level to any appropriate log level
+#define DISP_DEBUG_LEVEL DISP_LOG_LEVEL_INFO
 static constexpr const char* TAG = "DISPLAY";
-#define DISP_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
-#define DISP_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+
+#if DISP_DEBUG_LEVEL == DISP_LOG_LEVEL_INFO
 #define DISP_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
-#else
+#define DISP_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+#define DISP_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
+
+#elif DISP_DEBUG_LEVEL == DISP_LOG_LEVEL_WARN
+#define DISP_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
+#define DISP_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
 #define DISP_LOGI(...)
+
+#elif DISP_DEBUG_LEVEL == DISP_LOG_LEVEL_ERROR
+#define DISP_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
 #define DISP_LOGW(...)
+#define DISP_LOGI(...)
+
+#elif DISP_DEBUG_LEVEL == DISP_LOG_LEVEL_NONE
 #define DISP_LOGE(...)
+#define DISP_LOGW(...)
+#define DISP_LOGI(...)
 #endif
 
 
@@ -511,7 +529,7 @@ namespace display {
         return is_ble_popup_active_flag;
     }
 
-    void push_alert(entry_t entry) {
+    void push_alert(const entry_t& entry) {
         
         alert.push(entry);
 

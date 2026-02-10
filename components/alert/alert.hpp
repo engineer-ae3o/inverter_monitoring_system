@@ -77,7 +77,7 @@ namespace display {
         sys::data_t data{};
         alerts_t alerts{};
         
-        // Each builds an entry_t and enqueues it via enqueue_alert()
+        // Each builds an entry_t and pushes it to the alert queue
         void voltage_alert_popup();
         void current_alert_popup();
         void temp_alert_popup();

@@ -1,17 +1,30 @@
 #ifndef _SYSTEM_HPP_
 #define _SYSTEM_HPP_
 
+
 #include "aht20.h"
 #include "power_monitor.hpp"
+
 
 #define ASSERT(exp, msg)                                                       \
     do {                                                                       \
         if (!exp) {                                                            \
             ESP_LOGE("ASSERT", "Assert failed: %s", #msg);                     \
             ESP_LOGE("ASSERT", "File: %s, Line: %d", __FILE__, __LINE__);      \
-            sys::handle_error();                                               \
+            esp_restart();                                                     \
         }                                                                      \
     } while(0)
+
+// Alternative assert handler not requiring a message
+#define ASSERT_(exp)                                                           \
+    do {                                                                       \
+        if (!exp) {                                                            \
+            ESP_LOGE("ASSERT", "Assert failed: %s", #exp);                     \
+            ESP_LOGE("ASSERT", "File: %s, Line: %d", __FILE__, __LINE__);      \
+            esp_restart();                                                     \
+        }                                                                      \
+    } while(0)
+
 
 namespace sys {
 
@@ -42,12 +55,12 @@ namespace sys {
     /**
      * @brief Convert inverter status to string
      */
-    const char* inv_status_to_string(const inv_status_t& status);
+    const char* inv_status_to_string(inv_status_t status);
 
     /**
      * @brief Convert battery status to string
      */
-    const char* batt_status_to_string(const batt_status_t& status);
+    const char* batt_status_to_string(batt_status_t status);
 
     /**
      * @brief Calculates all the necessary runtime parameters required for a complete measurement of the inverter and battery statuses
@@ -65,7 +78,7 @@ namespace sys {
      * 
      * @note This function does not return
      */
-    void handle_error(void);
+    [[noreturn]] void handle_error(void);
 
 } // namespace sys
 

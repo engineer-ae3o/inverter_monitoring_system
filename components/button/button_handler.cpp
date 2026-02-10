@@ -13,17 +13,35 @@
 #include <cstdint>
 
 
-#define BTN_DEBUG 0
+// Debug logging levels
+#define BTN_LOG_LEVEL_INFO 3
+#define BTN_LOG_LEVEL_WARN 2
+#define BTN_LOG_LEVEL_ERROR 1
+#define BTN_LOG_LEVEL_NONE 0
 
-#if BTN_DEBUG == 1
-static const char* TAG = "BUTTON_HANDLER";
-#define BTN_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
-#define BTN_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+// Set the log level to any appropriate log level
+#define BTN_LOG_LEVEL BTN_LOG_LEVEL_WARN
+static constexpr const char* TAG = "Button_Handler";
+
+#if BTN_LOG_LEVEL == BTN_LOG_LEVEL_INFO
 #define BTN_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
-#else
+#define BTN_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
+#define BTN_LOGI(...) ESP_LOGI(TAG, __VA_ARGS__)
+
+#elif BTN_LOG_LEVEL == BTN_LOG_LEVEL_WARN
+#define BTN_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
+#define BTN_LOGW(...) ESP_LOGW(TAG, __VA_ARGS__)
 #define BTN_LOGI(...)
+
+#elif BTN_LOG_LEVEL == BTN_LOG_LEVEL_ERROR
+#define BTN_LOGE(...) ESP_LOGE(TAG, __VA_ARGS__)
 #define BTN_LOGW(...)
+#define BTN_LOGI(...)
+
+#elif BTN_LOG_LEVEL == BTN_LOG_LEVEL_NONE
 #define BTN_LOGE(...)
+#define BTN_LOGW(...)
+#define BTN_LOGI(...)
 #endif
 
 
@@ -43,7 +61,7 @@ namespace button {
 
     static int64_t start_prev_us = 0;
     static int64_t start_next_us = 0;
-    static int64_t start_ble_us = 0;
+    static int64_t start_BTN_us = 0;
 
 
     // Forward declarations
@@ -115,7 +133,7 @@ namespace button {
             },
             nullptr);
         if (ret != ESP_OK) {
-            BTN_LOGE("Failed to add isr for ble button gpio pin: %s", esp_err_to_name(ret));
+            BTN_LOGE("Failed to add isr for BTN button gpio pin: %s", esp_err_to_name(ret));
             deinit();
             return ret;
         }
@@ -236,7 +254,7 @@ namespace button {
             return ESP_FAIL;
         }
 
-        ble_button_debounce_timer_handle = xTimerCreate("BLEButtonDebounceTimer", pdMS_TO_TICKS(config::TIMEOUT_MS),
+        ble_button_debounce_timer_handle = xTimerCreate("BTNButtonDebounceTimer", pdMS_TO_TICKS(config::TIMEOUT_MS),
                                                         pdFALSE, nullptr, ble_button_debounce_timer_cb);
         if(!ble_button_debounce_timer_handle) {
             BTN_LOGE("Failed to create ble_button_debounce_timer_handle");
@@ -388,16 +406,16 @@ namespace button {
         event_t event = event_t::NO_EVENT;
 
         if (gpio_get_level(config::BLE_PIN) == 0) {
-            start_ble_us = esp_timer_get_time();
+            start_BTN_us = esp_timer_get_time();
             return;
 
         } else if (gpio_get_level(config::BLE_PIN) == 1) {
-            if (esp_timer_get_time() - start_ble_us >= config::BUTTON_LONG_PRESS_US) {
+            if (esp_timer_get_time() - start_BTN_us >= config::BUTTON_LONG_PRESS_US) {
                 event = event_t::BLE_LONG_PRESSED;
             } else {
                 event = event_t::BLE_BUTTON_PRESSED;
             }
-            start_ble_us = 0;
+            start_BTN_us = 0;
         }
 
         // Only send button updates if screen is at 100% brightness, else, just set screen to full brightness
