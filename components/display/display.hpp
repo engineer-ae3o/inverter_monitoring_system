@@ -17,11 +17,11 @@ namespace display {
      * @brief Initializes LVGL and the display interface
      * 
      * @param[in] handle Handle to the current instance of the driver being used
-     * @param[in] disp_mutex Mutex to ensure thread safety across lvgl api calls
+     * @param[out] disp_mutex Mutex to ensure thread safety across lvgl api calls
      * 
      * @return ESP_OK on sucess, error code otherwise
      */
-    esp_err_t init(const ili9341_handle_t& handle, const SemaphoreHandle_t& disp_mutex);
+    esp_err_t init(const ili9341_handle_t& handle, SemaphoreHandle_t& disp_mutex);
     
     /**
      * @brief Deinitializes the display interface

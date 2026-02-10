@@ -47,15 +47,15 @@ namespace display {
 
     // Timeouts
     static constexpr uint32_t POPUP_TIMEOUT_US              = 2'000'000;
-    static constexpr uint32_t DISP_MUTEX_TIMEOUT_MS         = 100;
+    static constexpr uint32_t TIMEOUT_MS                    = 100;
     
     // Display buffer for LVGL (32 lines worth of pixels)
     static constexpr size_t DISP_BUF_SIZE                   = config::LCD_WIDTH * 32;
     static constexpr uint16_t DISP_BOOTUP_SCREEN_TIME_MS    = 2500;
     
     // LVGL buffers
-    static std::array<lv_color_t, DISP_BUF_SIZE> buf1{};
-    static std::array<lv_color_t, DISP_BUF_SIZE> buf2{};
+    static std::array<lv_color16_t, DISP_BUF_SIZE> buf1{};
+    static std::array<lv_color16_t, DISP_BUF_SIZE> buf2{};
 
     // General utilities
     static lv_display_t* display                            = nullptr;
@@ -152,18 +152,25 @@ namespace display {
     
     
     // Public functions
-    esp_err_t init(const ili9341_handle_t& handle, const SemaphoreHandle_t& disp_mutex) {
+    esp_err_t init(const ili9341_handle_t& handle, SemaphoreHandle_t& disp_mutex) {
 
         DISP_LOGI("Initializing display interface");
 
         display_handle = handle;
-        display_mutex = disp_mutex;
+
+        display_mutex = xSemaphoreCreateMutex();
+        if (!display_mutex) {
+            DISP_LOGE("Failed to create lvgl mutex");
+            return ESP_FAIL;
+        }
+
+        disp_mutex = display_mutex;
 
         lv_init();
 
         display = lv_display_create(config::LCD_WIDTH, config::LCD_HEIGHT);
         lv_display_set_buffers(display, buf1.data(), buf2.data(), sizeof(buf1), LV_DISPLAY_RENDER_MODE_PARTIAL);
-        // lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
+        lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
         lv_display_set_flush_cb(display, disp_flush_cb);
         
         // LVGL tick timer: required by LVGL
@@ -191,7 +198,7 @@ namespace display {
         // BLE popup auto dismiss timer: required to close the poppus that were created
         constexpr esp_timer_create_args_t ble_popup_close_args = {
             .callback = [](void* arg) {
-                if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(DISP_MUTEX_TIMEOUT_MS)) != pdTRUE) return;
+                if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
                 if (ble_popup_handle) {
                     lv_msgbox_close(ble_popup_handle);
                     ble_popup_handle = nullptr;
@@ -216,7 +223,7 @@ namespace display {
         // the queue and closes whichever alert popup that was active
         constexpr esp_timer_create_args_t alert_popup_close_args = {
             .callback = [](void* arg) {
-                if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(DISP_MUTEX_TIMEOUT_MS)) != pdTRUE) return;
+                if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
                 if (alert_popup_handle) {
                     lv_msgbox_close(alert_popup_handle);
                     alert_popup_handle = nullptr;
@@ -242,8 +249,10 @@ namespace display {
 
         return ESP_OK;
     }
-    
+
     void deinit() {
+
+        if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
 
         DISP_LOGI("Deinitializing display interface");
 
@@ -293,9 +302,13 @@ namespace display {
         }
         
         DISP_LOGI("Display interface deinitialized");
+
+        xSemaphoreGive(display_mutex);
     }
 
     void bootup_screen() {
+
+        if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
 
         DISP_LOGI("Loading bootup screen");
 
@@ -308,12 +321,16 @@ namespace display {
 
         lv_scr_load(bootup_scr);
 
+        xSemaphoreGive(display_mutex);
+
         create_animated_loading_bar(bootup_scr, 180, 35, DISP_BOOTUP_SCREEN_TIME_MS);
 
         DISP_LOGI("Done loading bootup screen");
     }
     
     void create_ui() {
+
+        if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
 
         DISP_LOGI("Creating UI");
 
@@ -327,15 +344,19 @@ namespace display {
         // Cleanup bootup screen resources
         // The children get auto deleted when
         // the parent screen is deleted
-        // if (bootup_scr) {
-        //     lv_obj_del(bootup_scr);
-        //     bootup_scr = nullptr;
-        // }
+        if (bootup_scr) {
+            lv_obj_del(bootup_scr);
+            bootup_scr = nullptr;
+        }
+
+        xSemaphoreGive(display_mutex);
 
         DISP_LOGI("UI created");
     }
     
     void update_screen_data(const sys::data_t& data) {
+
+        if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
 
         switch (current_screen_idx) {
         case 0:
@@ -361,15 +382,20 @@ namespace display {
             break;
         }
 
-        alert_handle_t alerts(data);
+        // alert_handle_t alerts(data);
 
-        if (alerts.check_set_alerts()) {
-            alerts.display_warnings_if_alerts();
-            show_next_alert();
-        }
+        // if (alerts.check_set_alerts()) {
+        //     alerts.display_warnings_if_alerts();
+        //     show_next_alert();
+        // }
+
+        xSemaphoreGive(display_mutex);
     }
 
     void next_screen() {
+
+        if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
+
         // If we are currently displaying any of the graph screens,
         // go to screen 0 when we go to the next screen,
         // because the graph screens are inaccessible from the
@@ -382,9 +408,14 @@ namespace display {
         lv_scr_load(screens[current_screen_idx]);
 
         DISP_LOGI("Switched to screen %d", current_screen_idx);
+
+        xSemaphoreGive(display_mutex);
     }
 
     void prev_screen() {
+
+        if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
+
         // If we are currently displaying any of the graph screens, treat it 
         // similarly to screen 0 when we return to the previous screen,
         // because the graph screens are inaccessible from the
@@ -397,28 +428,38 @@ namespace display {
         lv_scr_load(screens[current_screen_idx]);
 
         DISP_LOGI("Switched to screen %d", current_screen_idx);
+
+        xSemaphoreGive(display_mutex);
     }
 
     void create_graph_screen(const graph_samples_t& env, const graph_samples_t& pow) {
+        if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
         create_screen_4(env);
         create_screen_5(pow);
+        xSemaphoreGive(display_mutex);
     }
 
     void env_graph_screen() {
+        if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
         current_screen_idx = ENV_GRAPH_IDX;
         lv_scr_load(screens[current_screen_idx]);
         DISP_LOGI("Switched to screen %u", current_screen_idx);
+        xSemaphoreGive(display_mutex);
     }
 
     void pow_graph_screen() {
+        if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
         current_screen_idx = POW_GRAPH_IDX;
         lv_scr_load(screens[current_screen_idx]);
         DISP_LOGI("Switched to screen %u", current_screen_idx);
+        xSemaphoreGive(display_mutex);
     }
 
     bool ble_popup(ble_popup_t event) {
 
         if (event == ble_popup_t::NO_EVENT) return true;
+
+        if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return false;
 
         if (ble_popup_handle) {
             lv_msgbox_close(ble_popup_handle);
@@ -427,15 +468,26 @@ namespace display {
             is_ble_popup_active_flag = false;
         }
 
-        if (event == ble_popup_t::CLEAR_POPUPS) return true;
+        if (event == ble_popup_t::CLEAR_POPUPS) {
+            xSemaphoreGive(display_mutex);
+            return true;
+        }
 
         const uint8_t idx = static_cast<uint8_t>(event);
-        if (idx >= (sizeof(ble_text_lut) / sizeof(ble_text_lut[0]))) return false;
+        if (idx >= (sizeof(ble_text_lut) / sizeof(ble_text_lut[0]))) {
+            xSemaphoreGive(display_mutex);
+            return false;
+        }
         const auto& [title, body] = ble_text_lut[idx];
 
         ble_popup_handle = lv_msgbox_create(screens[current_screen_idx]);
         if (title) lv_msgbox_add_title(ble_popup_handle, title);
         if (body) lv_msgbox_add_text(ble_popup_handle, body);
+        if (title && body) lv_obj_set_size(ble_popup_handle, 200, 120);
+        else if (title) lv_obj_set_size(ble_popup_handle, 200, 45);
+        lv_obj_set_style_bg_color(ble_popup_handle, lv_color_hex(color::DARK_GREY), 0);
+        lv_obj_set_style_text_color(ble_popup_handle, lv_color_hex(color::OFF_WHITE), 0);
+        lv_obj_set_style_text_font(ble_popup_handle, &lv_font_montserrat_16, LV_PART_MAIN);
         lv_obj_center(ble_popup_handle);
         lv_scr_load(screens[current_screen_idx]);
         esp_timer_start_once(ble_popup_close_timer, POPUP_TIMEOUT_US);
@@ -449,6 +501,8 @@ namespace display {
         else if (event == ble_popup_t::DEACTIVATED) {
             destroy_ble_logo();
         }
+
+        xSemaphoreGive(display_mutex);
 
         return true;
     }
@@ -494,6 +548,8 @@ namespace display {
 
     static void create_animated_loading_bar(lv_obj_t* parent, uint8_t w, uint8_t h, uint16_t time_ms) {
 
+        if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
+
         lv_obj_t* loading_bar = lv_bar_create(parent);
 
         lv_obj_set_size(loading_bar, w, h);
@@ -518,6 +574,8 @@ namespace display {
         lv_anim_set_path_cb(&bar_anim, lv_anim_path_ease_in);
 
         lv_anim_start(&bar_anim);
+
+        xSemaphoreGive(display_mutex);
 
         vTaskDelay(pdMS_TO_TICKS(time_ms));
     }

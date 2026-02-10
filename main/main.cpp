@@ -155,6 +155,7 @@ static void init_all() {
         LOGE("Failed to initialize LVGL and the display interface: %s", esp_err_to_name(result));
         sys::handle_error();
     }
+    ASSERT(lvgl_display_mutex, "lvgl_display_mutex cannot be null");
 
     // LittleFS and partition initialization
     constexpr esp_vfs_littlefs_conf_t littlefs_config = {
@@ -182,7 +183,7 @@ static void init_all() {
     LOGI("Initialization Complete");
 }
 
-static void queue_and_mutex_create() {
+static void queue_create() {
 
     aht_queue = xQueueCreate(1, sizeof(aht20_data_t));
     if (!aht_queue) {
@@ -199,12 +200,6 @@ static void queue_and_mutex_create() {
     final_data_queue = xQueueCreate(QUEUE_LENGTH, sizeof(sys::data_t));
     if (!final_data_queue) {
         LOGE("Failed to create queue to store final data");
-        sys::handle_error();
-    }
-
-    lvgl_display_mutex = xSemaphoreCreateMutex();
-    if (!lvgl_display_mutex) {
-        LOGE("Failed to create lvgl display mutex");
         sys::handle_error();
     }
 }
@@ -580,7 +575,7 @@ static void queue_and_mutex_create() {
     vTaskDelay(pdMS_TO_TICKS(200));
     display::create_ui();
 
-    // Discard all button presses before bootup screen finished loading
+    // Discard all button press events that may have occurred before the bootup screen finished loading
     xQueueReset(btn_queue);
 
     // Start timer which controls led dimming
@@ -598,11 +593,6 @@ static void queue_and_mutex_create() {
 #endif
 
         TWDT_RESET_FROM_TASK(display_task);
-        
-        if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
-            LOGW("Failed to take lvgl_display_mutex");
-            continue;
-        }
 
         // Check for button events
         // Dismiss any popups that may have been active
@@ -610,7 +600,8 @@ static void queue_and_mutex_create() {
         // was active. Instead, only clear the popup
         if (xQueueReceive(btn_queue, &event, 0) == pdTRUE) {
             if (display::is_ble_popup_active()) {
-                display::ble_popup(display::ble_popup_t::CLEAR_POPUPS); 
+                display::ble_popup(display::ble_popup_t::CLEAR_POPUPS);
+                
             } else {
                 switch (event) {
                 // Load next screen
@@ -678,17 +669,9 @@ static void queue_and_mutex_create() {
                 }
             }
         }
-        
-        // Give mutex before blocking
-        xSemaphoreGive(lvgl_display_mutex);
 
         // Block till runtime_calc_task tells us we have fresh data to update the current screen
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(TIMEOUT_MS));
-
-        if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
-            LOGW("Failed to take lvgl_display_mutex");
-            continue;
-        }
 
         if (xQueueReceive(final_data_queue, &data, 0) != pdTRUE) {
             LOGW("Failed to receive data from final_data_queue (display_task)");
@@ -697,9 +680,7 @@ static void queue_and_mutex_create() {
         }
 
         display::update_screen_data(data);
-
-        xSemaphoreGive(lvgl_display_mutex);
-
+        
 #if DISPLAY_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
         LOGI("Time for display_task: %.3fms", static_cast<float>(end[i]) / 1000.0f);
@@ -782,7 +763,7 @@ extern "C" {
     void app_main() {
 
         // Create queues
-        queue_and_mutex_create();
+        queue_create();
 
         // Initialize all components
         init_all();

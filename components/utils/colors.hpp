@@ -17,6 +17,8 @@ namespace color {
     constexpr inline uint16_t WHITE        = 0xFFFF;
     constexpr inline uint16_t BLACK        = 0x0000;
     constexpr inline uint16_t GREY         = 0x7BEF;
+    constexpr inline uint16_t DARK_GREY    = 0x294A;
+    constexpr inline uint16_t OFF_WHITE    = 0xE71C;
 
 } // namespace color
 
