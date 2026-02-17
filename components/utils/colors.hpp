@@ -19,6 +19,7 @@ namespace color {
     constexpr inline uint32_t DARK_BLUE    = 0x00008B;
     constexpr inline uint32_t WHITE        = 0xFFFFFF;
     constexpr inline uint32_t BLACK        = 0x000000;
+    constexpr inline uint32_t EERIE_BLACK  = 0x1A1A1A;
     constexpr inline uint32_t GREY         = 0x7F7F7F;
     constexpr inline uint32_t DARK_GREY    = 0x404040;
     constexpr inline uint32_t OFF_WHITE    = 0xF0F0F0;

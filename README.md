@@ -21,14 +21,12 @@ A comprehensive embedded systems project for monitoring power inverter and batte
 
 ## Overview
 
-The Inverter Monitoring System is an embedded firmware application designed to monitor and display real-time power metrics from a DC-AC inverter and battery system. The system continuously tracks electrical parameters, environmental conditions, and system status, presenting this information through a user-friendly graphical interface on an ST7735 128×160 pixel LCD display.
-
-This project leverages the ESP-IDF (Espressif IoT Development Framework) and implements a multi-threaded architecture using FreeRTOS for optimal performance and responsiveness.
+The Inverter Monitoring System is an embedded firmware application designed to monitor and display power metrics from a DC-AC inverter and battery system. The system continuously tracks electrical parameters, environmental conditions, and system status, presenting this information through a user-friendly graphical interface on an ILI9341 LCD display.
 
 ## Features
 
 ### Core Monitoring Capabilities
-- **Power Monitoring**: Real-time measurement of:
+- **Power Monitoring**: Measurement of:
   - Current consumption (in Amperes)
   - Voltage levels (in Volts)
   - Apparent power calculation (in VA - Volt-Amperes)
@@ -45,14 +43,13 @@ This project leverages the ESP-IDF (Espressif IoT Development Framework) and imp
   - System health status and alerts
 
 ### User Interface
-- **Graphical Display**: ST7735 128×160 pixel color LCD with LVGL (Light and Versatile Graphics Library)
+- **Graphical Display**: ILI9341 color LCD with LVGL (Light and Versatile Graphics Library)
 - **Multi-Screen Navigation**: Multiple information screens accessible via navigation buttons
 - **Real-Time Updates**: Dynamic UI refresh with live data visualization
 - **Alert System**: Visual and informational alerts for system events
 
 ### System Architecture
 - **Multi-Core Processing**: Leverages both ESP32 cores for parallel task execution
-- **Real-Time Guarantees**: Task-based scheduling with configurable priorities
 - **Thread Safe Operations**: Mutex protected shared resource access
 - **Watchdog Protection**: Task watchdog monitoring for system reliability
 
@@ -76,7 +73,7 @@ This project leverages the ESP-IDF (Espressif IoT Development Framework) and imp
   - GPIO32 input
 
 ### Display
-- **ST7735 128×160 Pixel Color LCD**
+- **ILI9341 Color LCD**
   - SPI interface
   - 65K color palette
   - RGB565 format
@@ -87,8 +84,7 @@ This project leverages the ESP-IDF (Espressif IoT Development Framework) and imp
 
 ### Connectivity
 - **I2C Bus**: SDA (GPIO14), SCL (GPIO27) for AHT20 sensor
-- **SPI Bus**: MOSI (GPIO18), SCLK (GPIO5) for LCD display
-- **Control Pins**: CS (GPIO22), DC (GPIO19), RST (GPIO21) for LCD
+- **SPI Bus**: MOSI (GPIO18), SCLK (GPIO5), CS (GPIO22), DC (GPIO19), RST (GPIO21) for ILI9341 LCD
 
 ## Project Architecture
 
@@ -310,6 +306,15 @@ namespace sys {
 **Files**: `st7735.h`, `st7735.c`
 
 Low-level SPI driver for the ST7735 LCD controller with support for:
+- SPI communication configuration
+- RGB565 color format
+- Hardware reset and data/command signaling
+
+### ILI9341 Display Driver (`components/ili9341`)
+
+**Files**: `ili9341.h`, `ili9341.c`
+
+Low-level SPI driver for the ILI9341 LCD controller with support for:
 - SPI communication configuration
 - RGB565 color format
 - Hardware reset and data/command signaling
@@ -607,6 +612,26 @@ idf.py build
 - **Namespaces**: Use namespaces to organize components
 - **Documentation**: Doxygen-style comments for public APIs
 
+### Building for Development
+
+Clean build:
+```bash
+idf.py fullclean
+idf.py build
+```
+
+Incremental build:
+```bash
+idf.py build
+```
+
+### Code Style
+
+- **C++ Standard**: C++17
+- **Naming**: snake_case for variables/functions
+- **Namespaces**: Use namespaces to organize components
+- **Documentation**: Doxygen-style comments for public APIs
+
 ## Troubleshooting
 
 ### Common Issues
@@ -700,4 +725,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 **For questions or issues, please open an issue on the GitHub repository.**
 
-Last Updated: December 12, 2025
+Last Updated: February 17, 2026

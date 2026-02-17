@@ -501,10 +501,10 @@ namespace display {
         ble_popup_handle = lv_msgbox_create(screens[current_screen_idx]);
         if (title) lv_msgbox_add_title(ble_popup_handle, title);
         if (body) lv_msgbox_add_text(ble_popup_handle, body);
+
+        // Use a bigger message box if the popup has both a title and a body
         if (title && body) lv_obj_set_size(ble_popup_handle, 200, 120);
         else if (title) lv_obj_set_size(ble_popup_handle, 200, 45);
-        lv_obj_set_style_bg_color(ble_popup_handle, lv_color_hex(color::DARK_GREY), 0);
-        lv_obj_set_style_text_color(ble_popup_handle, lv_color_hex(color::OFF_WHITE), 0);
         lv_obj_set_style_text_font(ble_popup_handle, &lv_font_montserrat_16, LV_PART_MAIN);
         lv_obj_center(ble_popup_handle);
         lv_scr_load(screens[current_screen_idx]);

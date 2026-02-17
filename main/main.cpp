@@ -58,8 +58,8 @@ static const char* TAG = "MAIN";
 #define AHT_TASK_PROFILING            0
 #define LOG_TASK_PROFILING            0
 #define CALC_TASK_PROFILING           0
-#define DISPLAY_TASK_PROFILING        0
-#define LVGL_TASK_PROFILING           0
+#define DISPLAY_TASK_PROFILING        1
+#define LVGL_TASK_PROFILING           1
 #define BLE_TASK_PROFILING            0
 
 using namespace config;
@@ -211,6 +211,8 @@ static void queue_create() {
 
     TWDT_ADD_TASK(lvgl_handler_task);
 
+    uint32_t time_till_next_call_ms{0};
+
 #if LVGL_TASK_PROFILING == 1
     int64_t end[100]{};
     size_t i = 0;
@@ -225,7 +227,7 @@ static void queue_create() {
         TWDT_RESET_FROM_TASK(lvgl_handler_task);
 
         if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) == pdTRUE) {
-            lv_timer_handler();
+            time_till_next_call_ms = lv_timer_handler();
             xSemaphoreGive(lvgl_display_mutex);
         } else {
             LOGW("Failed to take mutex. Skipping frame");
@@ -233,7 +235,7 @@ static void queue_create() {
 
 #if LVGL_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
-        float fps = 1'000'000 / (static_cast<float>(end[i]) + (LVGL_TASK_PERIOD_MS * 1'000));
+        float fps = 1'000'000 / (static_cast<float>(end[i]) + (time_till_next_call_ms * 1'000));
         LOGI("Time for lvgl_handler_task: %.3fms", static_cast<float>(end[i]) / 1000.0f);
         LOGI("Frames per seconds: %.3ffps", fps);
 
@@ -249,7 +251,7 @@ static void queue_create() {
         }
 #endif
 
-        vTaskDelay(pdMS_TO_TICKS(LVGL_TASK_PERIOD_MS));
+        vTaskDelay(pdMS_TO_TICKS(time_till_next_call_ms));
 
     }
 }
@@ -575,6 +577,14 @@ static void queue_create() {
     vTaskDelay(pdMS_TO_TICKS(200));
     display::create_ui();
 
+    {
+        // Create graph screens
+        display::graph_samples_t env{};
+        display::graph_samples_t pow{};
+
+        create_graph_screen(env, pow);
+    }
+    
     // Discard all button press events that may have occurred before the bootup screen finished loading
     xQueueReset(btn_queue);
 
