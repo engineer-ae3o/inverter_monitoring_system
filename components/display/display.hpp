@@ -105,7 +105,7 @@ namespace display {
      * 
      * @return true if a BLE popup is active
      */
-    [[nodiscard]] bool is_ble_popup_active();
+    [[nodiscard]] bool is_popup_active();
 
     // Forward declared here; full definition is in alert.hpp
     struct entry_t;

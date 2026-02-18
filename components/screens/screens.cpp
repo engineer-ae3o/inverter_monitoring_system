@@ -77,7 +77,7 @@ namespace display {
     // Style a label as a colored pill badge
     static inline void style_badge(lv_obj_t* lbl, const char* text, lv_color_t bg, lv_color_t fg);
     // Create bar to use for changing values
-    static inline lv_obj_t* create_bar(lv_obj_t* parent, uint16_t w, uint16_t h, uint8_t min, uint8_t max, uint32_t color);
+    static inline lv_obj_t* create_bar(lv_obj_t* parent, int32_t w, int32_t h, int32_t min, int32_t max, uint32_t color);
 
     // Public API
     // Screens Creation
@@ -109,19 +109,19 @@ namespace display {
             lv_label_set_text(nm, card_name[i]);
             lv_obj_set_style_text_color(nm, lv_color_hex(color::GREY), 0);
             lv_obj_set_style_text_font(nm, &lv_font_montserrat_12, 0);
-            lv_obj_align(nm, LV_ALIGN_TOP_MID, 0, 3);
+            lv_obj_align(nm, LV_ALIGN_TOP_MID, 0, 1);
 
             // Badge
             badges[i] = lv_label_create(card);
             lv_label_set_text(badges[i], "—");
             lv_obj_set_style_text_font(badges[i], &lv_font_montserrat_12, 0);
-            lv_obj_align(badges[i], LV_ALIGN_TOP_MID, 0, 17);
+            lv_obj_align(badges[i], LV_ALIGN_TOP_MID, 0, 15);
 
             // Value
             values[i] = lv_label_create(card);
             lv_label_set_text(values[i], "—");
             lv_obj_set_style_text_font(values[i], &lv_font_montserrat_12, 0);
-            lv_obj_align(values[i], LV_ALIGN_TOP_MID, 0, 40);
+            lv_obj_align(values[i], LV_ALIGN_TOP_MID, 0, 36);
         }
 
         label_s0_batt_badge = badges[0];
@@ -139,14 +139,14 @@ namespace display {
         // Live values panel
         lv_obj_t* live = create_panel(screens[0], 4, 98, 232, 88);
 
-        lv_obj_t* live_hdr = lv_label_create(live);
-        lv_label_set_text(live_hdr, "Battery Values");
-        lv_obj_set_style_text_color(live_hdr, lv_color_hex(color::GREY), 0);
-        lv_obj_set_style_text_font(live_hdr, &lv_font_montserrat_12, 0);
-        lv_obj_align(live_hdr, LV_ALIGN_TOP_MID, 0, 4);
+        lv_obj_t* stats = lv_label_create(live);
+        lv_label_set_text(stats, "STATS");
+        lv_obj_set_style_text_color(stats, lv_color_hex(color::GREY), 0);
+        lv_obj_set_style_text_font(stats, &lv_font_montserrat_12, 0);
+        lv_obj_align(stats, LV_ALIGN_CENTER, 0, -35);
 
         // 3 columns
-        static constexpr const uint8_t col_x[3] = { 10, 70, 150 };
+        static constexpr const uint8_t col_x[3] = { 10, 77, 150 };
         static constexpr const char* col_name[3] = { "Voltage", "Current", "Power" };
         static constexpr const char* col_unit[3] = { "V", "A", "W" };
         lv_obj_t* val_lbls[3]{};
@@ -156,19 +156,19 @@ namespace display {
             lv_label_set_text(nm, col_name[i]);
             lv_obj_set_style_text_color(nm, lv_color_hex(color::GREY), 0);
             lv_obj_set_style_text_font(nm, &lv_font_montserrat_12, 0);
-            lv_obj_set_pos(nm, col_x[i], 20);
+            lv_obj_set_pos(nm, col_x[i], 10);
 
             val_lbls[i] = lv_label_create(live);
             lv_label_set_text(val_lbls[i], "0.0");
             lv_obj_set_style_text_color(val_lbls[i], lv_color_hex(color::WHITE), 0);
             lv_obj_set_style_text_font(val_lbls[i], &lv_font_montserrat_20, 0);
-            lv_obj_set_pos(val_lbls[i], col_x[i], 34);
+            lv_obj_set_pos(val_lbls[i], col_x[i], 25);
 
             lv_obj_t* un = lv_label_create(live);
             lv_label_set_text(un, col_unit[i]);
             lv_obj_set_style_text_color(un, lv_color_hex(color::GREY), 0);
             lv_obj_set_style_text_font(un, &lv_font_montserrat_12, 0);
-            lv_obj_set_pos(un, col_x[i], 58);
+            lv_obj_set_pos(un, col_x[i], 48);
         }
 
         label_s0_voltage = val_lbls[0];
@@ -178,7 +178,7 @@ namespace display {
         // Bottom row
         lv_obj_t* bot = create_panel(screens[0], 4, 192, 232, 52);
 
-        static constexpr const uint8_t bot_x[3] = { 10, 70, 150 };
+        static constexpr const uint8_t bot_x[3] = { 10, 77, 150 };
         static constexpr const char* bot_hdr[3] = { "Runtime", "Battery", "Inverter" };
         lv_obj_t* bot_vals[3]{};
 
@@ -187,12 +187,12 @@ namespace display {
             lv_label_set_text(hd, bot_hdr[i]);
             lv_obj_set_style_text_color(hd, lv_color_hex(color::GREY), 0);
             lv_obj_set_style_text_font(hd, &lv_font_montserrat_12, 0);
-            lv_obj_set_pos(hd, bot_x[i], 1);
+            lv_obj_set_pos(hd, bot_x[i], 0);
 
             bot_vals[i] = lv_label_create(bot);
             lv_label_set_text(bot_vals[i], "—");
             lv_obj_set_style_text_font(bot_vals[i], &lv_font_montserrat_12, 0);
-            lv_obj_set_pos(bot_vals[i], bot_x[i], 18);
+            lv_obj_set_pos(bot_vals[i], bot_x[i], 15);
         }
 
         label_s0_runtime     = bot_vals[0];
@@ -243,7 +243,7 @@ namespace display {
 
         // Voltage bar
         label_s1_voltage_bar = create_bar(screens[1], 200, 18, 6, 12.6, color::GREEN);
-        lv_obj_align(label_s1_voltage_bar, LV_ALIGN_TOP_MID, 0, 130);
+        lv_obj_align(label_s1_voltage_bar, LV_ALIGN_TOP_MID, 0, 134);
 
         // Current panel
         lv_obj_t* cur = create_panel(screens[1], 4, 174, 232, 70);
@@ -261,8 +261,10 @@ namespace display {
         lv_obj_align(label_s1_current_val, LV_ALIGN_TOP_RIGHT, -8, 4);
 
         // Current bar
-        label_s1_current_bar = create_bar(screens[1], 200, 18, -20, 20, color::GREEN);
-        lv_obj_align(label_s1_current_bar, LV_ALIGN_TOP_MID, 0, 206);
+        label_s1_current_bar = create_bar(screens[1], 200, 18, -20, 25, color::GREEN);
+        lv_obj_align(label_s1_current_bar, LV_ALIGN_TOP_MID, 0, 210);
+        // Additional styling or this bar since it uses a negative minimum
+        lv_bar_set_mode(label_s1_current_bar, LV_BAR_MODE_SYMMETRICAL);
     }
 
     void create_screen_2() {
@@ -837,22 +839,22 @@ namespace display {
 
         char buf[64]{};
 
-        // Temperature: 0°C..60°C → 0..216px
+        // Temperature
         snprintf(buf, sizeof(buf) - 1, "%.3f°C", data.inv_temp);
         lv_label_set_text(label_s2_temp_val, buf);
 
-        float t = data.inv_temp;
-        if (t < 0.0f)  t = 0.0f;
-        if (t > 60.0f) t = 60.0f;
-        int32_t t_px = (int32_t)((t / 60.0f) * 216.0f);
+        float temperature = data.inv_temp;
+        if (temperature < 0.0f)  temperature = 0.0f;
+        if (temperature > 60.0f) temperature = 60.0f;
+        int32_t t_px = (int32_t)((temperature / 60.0f) * 216.0f);
         lv_obj_set_width(bar_s2_temp_fill, t_px);
 
-        if (t >= 45.0f) {
+        if (temperature >= 45.0f) {
             lv_obj_set_style_bg_color(bar_s2_temp_fill, lv_color_hex(color::RED), 0);
-        } else if (t >= 10.0f) {
+        } else if (temperature >= 10.0f) {
             lv_obj_set_style_bg_color(bar_s2_temp_fill, lv_color_hex(color::GREEN), 0);
         } else {
-            lv_obj_set_style_bg_color(bar_s2_temp_fill, lv_color_hex(0x4488FF), 0);
+            lv_obj_set_style_bg_color(bar_s2_temp_fill, lv_color_hex(color::CYAN), 0);
         }
 
         // Overlay centered on filled portion
@@ -862,19 +864,19 @@ namespace display {
 
         lv_obj_set_x(label_s2_temp_tick, 8 + (t_px > 3 ? t_px - 3 : 0));
 
-        // Humidity: 0%..100% → 0..216px
+        // Humidity
         snprintf(buf, sizeof(buf) - 1, "%.1f%%", data.inv_hmdt);
         lv_label_set_text(label_s2_hmdt_val, buf);
 
-        float h = data.inv_hmdt;
-        if (h < 0.0f)   h = 0.0f;
-        if (h > 100.0f) h = 100.0f;
-        int32_t h_px = (int32_t)((h / 100.0f) * 216.0f);
+        float humidity = data.inv_hmdt;
+        if (humidity < 0.0f) humidity = 0.0f;
+        if (humidity > 100.0f) humidity = 100.0f;
+        int32_t h_px = (int32_t)((humidity / 100.0f) * 216.0f);
         lv_obj_set_width(bar_s2_hmdt_fill, h_px);
 
-        if (h >= 70.0f) {
+        if (humidity >= 70.0f) {
             lv_obj_set_style_bg_color(bar_s2_hmdt_fill, lv_color_hex(color::YELLOW), 0);
-        } else if (h >= 20.0f) {
+        } else if (humidity >= 20.0f) {
             lv_obj_set_style_bg_color(bar_s2_hmdt_fill, lv_color_hex(color::GREEN), 0);
         } else {
             lv_obj_set_style_bg_color(bar_s2_hmdt_fill, lv_color_hex(0x4488FF), 0);
@@ -901,7 +903,7 @@ namespace display {
             lv_obj_set_style_text_color(label_s2_inv_status, lv_color_hex(color::GREY), 0);
         }
     }
-   
+
     void update_screen_3(const sys::data_t& data) {
 
         char buf[64]{};
@@ -1015,7 +1017,7 @@ namespace display {
         lv_obj_set_style_pad_bottom(lbl, 1, 0);
     }
 
-    static inline lv_obj_t* create_bar(lv_obj_t* parent, uint16_t w, uint16_t h, uint8_t min, uint8_t max, uint32_t color) {
+    static inline lv_obj_t* create_bar(lv_obj_t* parent, int32_t w, int32_t h, int32_t min, int32_t max, uint32_t color) {
 
         lv_obj_t* bar = lv_bar_create(parent);
 

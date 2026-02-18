@@ -60,12 +60,11 @@ namespace display {
     // BLE popup and logo
     static lv_obj_t* ble_popup_handle                       = nullptr;
     static lv_obj_t* ble_logo_handle                        = nullptr;
-    static bool is_ble_popup_active_flag                    = false;
     static esp_timer_handle_t ble_popup_close_timer         = nullptr;
 
     // Timeouts
     static constexpr uint32_t POPUP_TIMEOUT_US              = 2'000'000;
-    static constexpr uint32_t TIMEOUT_MS                    = 100;
+    static constexpr uint32_t TIMEOUT_MS                    = 200;
     
     // Display buffer for LVGL (32 lines worth of pixels)
     static constexpr size_t DISP_BUF_SIZE                   = config::LCD_WIDTH * 32;
@@ -179,7 +178,7 @@ namespace display {
         display_mutex = xSemaphoreCreateMutex();
         if (!display_mutex) {
             DISP_LOGE("Failed to create lvgl mutex");
-            return ESP_FAIL;
+            return ESP_ERR_NO_MEM;
         }
 
         disp_mutex = display_mutex;
@@ -213,7 +212,7 @@ namespace display {
             return ret;
         }
 
-        // BLE popup auto dismiss timer: required to close the poppus that were created
+        // BLE popup auto dismiss timer: required to close the ble popup that was created
         constexpr esp_timer_create_args_t ble_popup_close_args = {
             .callback = [](void* arg) {
                 if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
@@ -221,7 +220,6 @@ namespace display {
                     lv_msgbox_close(ble_popup_handle);
                     ble_popup_handle = nullptr;
                 }
-                is_ble_popup_active_flag = false;
                 xSemaphoreGive(display_mutex);
             },
             .arg = nullptr,
@@ -400,12 +398,12 @@ namespace display {
             break;
         }
 
-        // alert_handle_t alerts(data);
+        alert_handle_t alerts(data);
 
-        // if (alerts.check_set_alerts()) {
-        //     alerts.display_warnings_if_alerts();
-        //     show_next_alert();
-        // }
+        if (alerts.check_set_alerts()) {
+            alerts.display_warnings_if_alerts();
+            show_next_alert();
+        }
 
         xSemaphoreGive(display_mutex);
     }
@@ -455,6 +453,10 @@ namespace display {
         create_screen_4(env);
         create_screen_5(pow);
         xSemaphoreGive(display_mutex);
+
+        // Sanity check their creations
+        ASSERT_(screens[ENV_GRAPH_IDX]);
+        ASSERT_(screens[POW_GRAPH_IDX]);
     }
 
     void env_graph_screen() {
@@ -483,7 +485,12 @@ namespace display {
             lv_msgbox_close(ble_popup_handle);
             ble_popup_handle = nullptr;
             esp_timer_stop(ble_popup_close_timer);
-            is_ble_popup_active_flag = false;
+        }
+
+        if (alert_popup_handle) {
+            lv_msgbox_close(alert_popup_handle);
+            alert_popup_handle = nullptr;
+            esp_timer_stop(alert_popup_close_timer);
         }
 
         if (event == ble_popup_t::CLEAR_POPUPS) {
@@ -509,7 +516,6 @@ namespace display {
         lv_obj_center(ble_popup_handle);
         lv_scr_load(screens[current_screen_idx]);
         esp_timer_start_once(ble_popup_close_timer, POPUP_TIMEOUT_US);
-        is_ble_popup_active_flag = true;
 
         // Create the BLE logo if BLE was just activated
         if (event == ble_popup_t::ACTIVATED) {
@@ -525,8 +531,9 @@ namespace display {
         return true;
     }
 
-    [[nodiscard]] bool is_ble_popup_active() {
-        return is_ble_popup_active_flag;
+    [[nodiscard]] bool is_popup_active() {
+        if (ble_popup_handle || ble_popup_handle) return true;
+        return false;
     }
 
     void push_alert(const entry_t& entry) {
@@ -536,7 +543,9 @@ namespace display {
         // If this is the only entry and no alert popup
         // is currently showing, display it immediately.
         if ((alert.get_num_elements() == 1) && (!alert_popup_handle)) {
+            if (xSemaphoreTake(display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) return;
             show_next_alert();
+            xSemaphoreGive(display_mutex);
         }
     }
 

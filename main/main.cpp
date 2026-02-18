@@ -54,32 +54,32 @@ static const char* TAG = "MAIN";
     } while (0)
 
 
-#define ADC_TASK_PROFILING            0
-#define AHT_TASK_PROFILING            0
-#define LOG_TASK_PROFILING            0
-#define CALC_TASK_PROFILING           0
-#define DISPLAY_TASK_PROFILING        1
-#define LVGL_TASK_PROFILING           1
-#define BLE_TASK_PROFILING            0
+#define ADC_TASK_PROFILING                           0
+#define AHT_TASK_PROFILING                           0
+#define LOG_TASK_PROFILING                           0
+#define CALC_TASK_PROFILING                          0
+#define DISPLAY_TASK_PROFILING                       0
+#define LVGL_TASK_PROFILING                          0
+#define BLE_TASK_PROFILING                           0
 
 using namespace config;
 
 // Task handles
-static TaskHandle_t calc_runtime_task_handle = nullptr;
-static TaskHandle_t display_task_handle = nullptr;
-static TaskHandle_t adc_task_handle = nullptr;
-static TaskHandle_t aht_task_handle = nullptr;
-static TaskHandle_t lvgl_task_handle = nullptr;
-static TaskHandle_t log_task_handle = nullptr;
-static TaskHandle_t ble_task_handle = nullptr;
+static TaskHandle_t calc_runtime_task_handle         = nullptr;
+static TaskHandle_t display_task_handle              = nullptr;
+static TaskHandle_t adc_task_handle                  = nullptr;
+static TaskHandle_t aht_task_handle                  = nullptr;
+static TaskHandle_t lvgl_task_handle                 = nullptr;
+static TaskHandle_t log_task_handle                  = nullptr;
+static TaskHandle_t ble_task_handle                  = nullptr;
 
 //  Queue parameters
-static QueueHandle_t aht_queue = nullptr;
-static QueueHandle_t power_queue = nullptr;
-static QueueHandle_t final_data_queue = nullptr;
+static QueueHandle_t aht_queue                       = nullptr;
+static QueueHandle_t power_queue                     = nullptr;
+static QueueHandle_t final_data_queue                = nullptr;
 
 // Mutex for thread safety between lvgl_handler_task and display_task
-SemaphoreHandle_t lvgl_display_mutex = nullptr;
+SemaphoreHandle_t lvgl_display_mutex                 = nullptr;
 
 // File data
 struct file_data_t {
@@ -90,8 +90,8 @@ struct file_data_t {
     float battery_soc;
 };
 
-static esp_timer_handle_t display_led_timer_handle = nullptr;
-static ili9341_handle_t display_handle = nullptr;
+static esp_timer_handle_t display_led_timer_handle   = nullptr;
+static ili9341_handle_t display_handle               = nullptr;
 
 static adc::driver power{};
 
@@ -210,9 +210,7 @@ static void queue_create() {
     LOGI("Starting lvgl_handler_task");
 
     TWDT_ADD_TASK(lvgl_handler_task);
-
-    uint32_t time_till_next_call_ms{0};
-
+    
 #if LVGL_TASK_PROFILING == 1
     int64_t end[100]{};
     size_t i = 0;
@@ -227,7 +225,7 @@ static void queue_create() {
         TWDT_RESET_FROM_TASK(lvgl_handler_task);
 
         if (xSemaphoreTake(lvgl_display_mutex, pdMS_TO_TICKS(TIMEOUT_MS)) == pdTRUE) {
-            time_till_next_call_ms = lv_timer_handler();
+            lv_timer_handler();
             xSemaphoreGive(lvgl_display_mutex);
         } else {
             LOGW("Failed to take mutex. Skipping frame");
@@ -235,7 +233,7 @@ static void queue_create() {
 
 #if LVGL_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
-        float fps = 1'000'000 / (static_cast<float>(end[i]) + (time_till_next_call_ms * 1'000));
+        float fps = 1'000'000 / (static_cast<float>(end[i]) + (LVGL_TASK_PERIOD_MS * 1'000));
         LOGI("Time for lvgl_handler_task: %.3fms", static_cast<float>(end[i]) / 1000.0f);
         LOGI("Frames per seconds: %.3ffps", fps);
 
@@ -250,9 +248,8 @@ static void queue_create() {
             i = 0;
         }
 #endif
-
-        vTaskDelay(pdMS_TO_TICKS(time_till_next_call_ms));
-
+        
+        vTaskDelay(pdMS_TO_TICKS(LVGL_TASK_PERIOD_MS));
     }
 }
 
@@ -574,16 +571,14 @@ static void queue_create() {
     bool is_ble_active = false;
 
     // Arbitrary delay to allow the bootup screen flush properly before creating the UI
-    vTaskDelay(pdMS_TO_TICKS(200));
+    vTaskDelay(pdMS_TO_TICKS(150));
     display::create_ui();
 
-    {
-        // Create graph screens
-        display::graph_samples_t env{};
-        display::graph_samples_t pow{};
+    // Create graph screens
+    display::graph_samples_t env{};
+    display::graph_samples_t pow{};
 
-        create_graph_screen(env, pow);
-    }
+    create_graph_screen(env, pow);
     
     // Discard all button press events that may have occurred before the bootup screen finished loading
     xQueueReset(btn_queue);
@@ -609,7 +604,7 @@ static void queue_create() {
         // Do not register any button events if a popup
         // was active. Instead, only clear the popup
         if (xQueueReceive(btn_queue, &event, 0) == pdTRUE) {
-            if (display::is_ble_popup_active()) {
+            if (display::is_popup_active()) {
                 display::ble_popup(display::ble_popup_t::CLEAR_POPUPS);
                 
             } else {
@@ -685,7 +680,6 @@ static void queue_create() {
 
         if (xQueueReceive(final_data_queue, &data, 0) != pdTRUE) {
             LOGW("Failed to receive data from final_data_queue (display_task)");
-            xSemaphoreGive(lvgl_display_mutex);
             continue;
         }
 
