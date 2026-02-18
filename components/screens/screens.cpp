@@ -913,7 +913,7 @@ namespace display {
         char buf[64]{};
 
         // Electrical rows
-        // Dots go yellow go yellow when in warning range
+        // Dots go yellow when in warning range
 
         // Voltage: yellow dot when voltage >12.6V or <= 10.5V
         bool v_warn = (data.battery_voltage <= 10.5f || data.battery_voltage > 12.6f);

@@ -14,8 +14,9 @@
 
 #include "esp_task_wdt.h"
 #include "esp_littlefs.h"
-#include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "esp_timer.h"
+#include "esp_err.h"
 #include "esp_log.h"
 
 #include <cstdio>
@@ -284,6 +285,10 @@ static void queue_create() {
         }
 
         xQueueOverwrite(aht_queue, &data);
+
+        LOGI("Heap free size: %u. Minimum heap size: %u. Largest block: %u",
+            heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
+            heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
 #if AHT_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
