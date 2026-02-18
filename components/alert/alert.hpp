@@ -22,7 +22,7 @@ namespace display {
     struct entry_t {
         severity_t severity{};
         char title[32]{}; // e.g. "VOLTAGE LOW"
-        char body[96]{};  // e.g. "8.7V  threshold: 10.5V\nBattery depleting"
+        char body[128]{};  // e.g. "8.7V  threshold: 10.5V\nBattery depleting"
     };
 
     class alert_handle_t {

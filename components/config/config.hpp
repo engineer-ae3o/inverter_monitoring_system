@@ -12,7 +12,7 @@ namespace config {
     constexpr inline uint16_t CALC_TASK_PRIORITY                     = 5;
     constexpr inline uint16_t CALC_TASK_PERIOD_MS                    = 20;
     
-    constexpr inline uint16_t DISPLAY_TASK_STACK_SIZE                = 7 * 1024;
+    constexpr inline uint16_t DISPLAY_TASK_STACK_SIZE                = 8 * 1024;
     constexpr inline uint16_t DISPLAY_TASK_PRIORITY                  = 4;
     
     constexpr inline uint16_t AHT_TASK_STACK_SIZE                    = 3 * 1024;
@@ -23,7 +23,7 @@ namespace config {
     constexpr inline uint16_t ADC_TASK_PRIORITY                      = 7;
     constexpr inline uint16_t ADC_READ_PERIOD_MS                     = 15;
     
-    constexpr inline uint16_t LVGL_TASK_STACK_SIZE                   = 6 * 1024;
+    constexpr inline uint16_t LVGL_TASK_STACK_SIZE                   = 8 * 1024;
     constexpr inline uint16_t LVGL_TASK_PRIORITY                     = 4;
     constexpr inline uint16_t LVGL_TASK_PERIOD_MS                    = 10;
 
@@ -31,7 +31,7 @@ namespace config {
     constexpr inline uint16_t LOG_TASK_PRIORITY                      = 2;
     constexpr inline uint16_t LOG_TASK_PERIOD_MS                     = 5'000; // 5s
 
-    constexpr inline uint16_t BLE_TASK_STACK_SIZE                    = 3 * 1024;
+    constexpr inline uint16_t BLE_TASK_STACK_SIZE                    = 4 * 1024;
     constexpr inline uint16_t BLE_TASK_PRIORITY                      = 2;
     constexpr inline uint16_t BLE_TASK_PERIOD_MS                     = 2'000; // 2s
     
