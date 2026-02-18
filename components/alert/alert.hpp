@@ -28,8 +28,6 @@ namespace display {
     class alert_handle_t {
     private:
         enum class voltage_t : int8_t {
-            TOO_LOW = -2,
-            LOW = -1,
             OK = 0,
             HIGH = 1
         };
@@ -60,7 +58,7 @@ namespace display {
 
         enum class batt_t : uint8_t {
             OK = 0,
-            BELOW_50 = 1,
+            BELOW_20 = 1,
             BELOW_15 = 2,
             BELOW_10 = 3,
             BELOW_5 = 4
@@ -77,7 +75,7 @@ namespace display {
         sys::data_t data{};
         alerts_t alerts{};
         
-        // Each builds an entry_t and pushes it to the alert queue
+        // Each builds an `entry_t` and pushes it to the alert queue
         void voltage_alert_popup();
         void current_alert_popup();
         void temp_alert_popup();

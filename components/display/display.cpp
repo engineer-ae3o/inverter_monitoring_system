@@ -539,7 +539,7 @@ namespace display {
     }
 
     bool toggle_alert_popup_status() {
-        alerts_enabled = alerts_enabled ? false : true;
+        alerts_enabled = !alerts_enabled;
         return alerts_enabled;
     }
 

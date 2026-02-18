@@ -95,8 +95,8 @@ namespace display {
         // 4 status cards
         // 240px wide, 4px outer margin each side, 4px gap between cards
         // card_w = (240 - 4*2 - 4*3) / 4 = (232 - 12)/4 = 55 → use 54 for breathing room
-        static constexpr const uint8_t card_x[4] = { 4, 62, 120, 178 };
-        static constexpr const char* card_name[4] = { "BATT", "INV", "TEMP", "HMDT" };
+        constexpr const uint8_t card_x[4] = { 4, 62, 120, 178 };
+        constexpr const char* card_name[4] = { "BATT", "INV", "TEMP", "HMDT" };
 
         lv_obj_t* badges[4]{};
         lv_obj_t* values[4]{};
@@ -146,9 +146,9 @@ namespace display {
         lv_obj_align(stats, LV_ALIGN_CENTER, 0, -28);
 
         // 3 columns
-        static constexpr const uint8_t col_x[3] = { 10, 77, 150 };
-        static constexpr const char* col_name[3] = { "Voltage", "Current", "Power" };
-        static constexpr const char* col_unit[3] = { "V", "A", "W" };
+        constexpr const uint8_t col_x[3] = { 10, 77, 150 };
+        constexpr const char* col_name[3] = { "Voltage", "Current", "Power" };
+        constexpr const char* col_unit[3] = { "V", "A", "W" };
         lv_obj_t* val_lbls[3]{};
 
         for (uint8_t i = 0; i < 3; i++) {
@@ -178,8 +178,8 @@ namespace display {
         // Bottom row
         lv_obj_t* bot = create_panel(screens[0], 4, 192, 232, 52);
 
-        static constexpr const uint8_t bot_x[3] = { 10, 77, 150 };
-        static constexpr const char* bot_hdr[3] = { "Runtime", "Battery", "Inverter" };
+        constexpr const uint8_t bot_x[3] = { 10, 77, 150 };
+        constexpr const char* bot_hdr[3] = { "Runtime", "Battery", "Inverter" };
         lv_obj_t* bot_vals[3]{};
 
         for (uint8_t i = 0; i < 3; i++) {
@@ -242,7 +242,10 @@ namespace display {
         lv_obj_align(label_s1_voltage_val, LV_ALIGN_TOP_RIGHT, -8, 4);
 
         // Voltage bar
-        label_s1_voltage_bar = create_bar(screens[1], 200, 18, 6, 12.6, color::GREEN);
+        // Voltage ranges are scaled by 10 because lvgl uses `int32_t`
+        // and cannot express floats; so we would lose precision
+        // Current can be left as is since the range is higher
+        label_s1_voltage_bar = create_bar(screens[1], 200, 18, 60, 126, color::GREEN);
         lv_obj_align(label_s1_voltage_bar, LV_ALIGN_TOP_MID, 0, 134);
 
         // Current panel
@@ -339,8 +342,8 @@ namespace display {
         lv_obj_set_pos(label_s2_temp_tick, 8, 26);
 
         // Scale: 0°C = 0px, 10°C = 36px, 45°C = 162px, 60°C = 216px
-        static constexpr const char* ts_txt[] = { "0°C", "10°C", "45°C", "60°C" };
-        static constexpr const uint8_t ts_x[] = { 8, 44, 162, 212 };
+        constexpr const char* ts_txt[] = { "0°C", "10°C", "45°C", "60°C" };
+        constexpr const uint8_t ts_x[] = { 8, 44, 162, 212 };
 
         for (uint8_t i = 0; i < 4; i++) {
             lv_obj_t* sl = lv_label_create(tp);
@@ -411,8 +414,8 @@ namespace display {
         lv_obj_set_pos(label_s2_hmdt_tick, 8, 26);
 
         // Scale: 0%=0px, 20%=43px, 70%=151px, 100%=216px
-        static constexpr const char* hs_txt[] = { "0%", "20%", "70%", "100%" };
-        static constexpr const uint8_t hs_x[] = { 8, 51, 151, 208 };
+        constexpr const char* hs_txt[] = { "0%", "20%", "70%", "100%" };
+        constexpr const uint8_t hs_x[] = { 8, 51, 151, 208 };
 
         for (uint8_t i = 0; i < 4; i++) {
             lv_obj_t* sl = lv_label_create(hm);
@@ -470,9 +473,9 @@ namespace display {
         lv_obj_set_style_text_font(elec_hdr, &lv_font_montserrat_10, 0);
         lv_obj_align(elec_hdr, LV_ALIGN_TOP_MID, 0, 5);
 
-        // 4 rows: dot | label | value (right-aligned)
-        static constexpr const char* elec_labels[4] = { "Voltage", "Current", "Power", "State of Charge" };
-        static constexpr const uint8_t elec_row_y[4]  = { 24, 48, 68, 90 };
+        // 4 rows: dot | label | value (right aligned)
+        constexpr const char* elec_labels[4] = { "Voltage", "Current", "Power", "State of Charge" };
+        constexpr const uint8_t elec_row_y[4]  = { 20, 40, 60, 80 };
 
         lv_obj_t* edots[4]{};
         lv_obj_t* evals[4]{};
@@ -512,10 +515,10 @@ namespace display {
         lv_label_set_text(env_hdr, "BATTERY ENVIRONMENT");
         lv_obj_set_style_text_color(env_hdr, lv_color_hex(color::GREY), 0);
         lv_obj_set_style_text_font(env_hdr, &lv_font_montserrat_10, 0);
-        lv_obj_align(env_hdr, LV_ALIGN_TOP_MID, 0, 2);
+        lv_obj_align(env_hdr, LV_ALIGN_TOP_MID, 0, 1);
 
-        static constexpr const char* env_labels[2] = { "Temperature", "Humidity" };
-        static constexpr const uint8_t env_row_y[2]  = { 21, 45 };
+        constexpr const char* env_labels[2] = { "Temperature", "Humidity" };
+        constexpr const uint8_t env_row_y[2]  = { 18, 38 };
 
         lv_obj_t* ndots[2]{};
         lv_obj_t* nvals[2]{};
@@ -545,8 +548,8 @@ namespace display {
         // Bottom row
         lv_obj_t* bot = create_panel(screens[3], 4, 232, 232, 56);
 
-        static constexpr const char* bot_hdrs[3] = { "BATTERY", "INVERTER", "RUNTIME" };
-        static constexpr const uint8_t bot_x[3] = { 10, 88, 166 };
+        constexpr const char* bot_hdrs[3] = { "BATTERY", "INVERTER", "RUNTIME" };
+        constexpr const uint8_t bot_x[3] = { 8, 82, 150 };
         lv_obj_t* bvals[3]{};
 
         for (uint8_t i = 0; i < 3; i++) {
@@ -806,7 +809,7 @@ namespace display {
         if (voltage < 6.0f) voltage = 6.0f;
         else if (voltage > 12.6f) voltage = 12.6f;
         
-        lv_bar_set_value(label_s1_voltage_bar, static_cast<int32_t>(voltage), LV_ANIM_ON);
+        lv_bar_set_value(label_s1_voltage_bar, static_cast<int32_t>(voltage * 10), LV_ANIM_ON);
         // Determine color of bar
         if (voltage <= 9.0f) {
             lv_obj_set_style_bg_color(label_s1_voltage_bar, lv_color_hex(color::RED), LV_PART_INDICATOR);
@@ -910,50 +913,52 @@ namespace display {
         char buf[64]{};
 
         // Electrical rows
-        // Dots go yellow and values go yellow when in warning range
+        // Dots go yellow go yellow when in warning range
 
+        // Voltage: yellow dot when voltage >12.6V or <= 10.5V
         bool v_warn = (data.battery_voltage <= 10.5f || data.battery_voltage > 12.6f);
         lv_obj_set_style_bg_color(dot_s3_voltage, v_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
         snprintf(buf, sizeof(buf) - 1, "%.2f V", data.battery_voltage);
         lv_label_set_text(label_s3_voltage_val, buf);
-        lv_obj_set_style_text_color(label_s3_voltage_val, v_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::WHITE), 0);
 
-        bool i_warn = (data.load_current_drawn >= 20.0f);
+        // Current: yellow dot when current >=20A or <=-15A
+        bool i_warn = (data.load_current_drawn >= 20.0f || data.load_current_drawn <= -15.0f);
         lv_obj_set_style_bg_color(dot_s3_current, i_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
         snprintf(buf, sizeof(buf) - 1, "%.2f A", data.load_current_drawn);
         lv_label_set_text(label_s3_current_val, buf);
-        lv_obj_set_style_text_color(label_s3_current_val, i_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::WHITE), 0);
 
-        bool p_warn = (data.power_drawn >= 200.0f);
+        // Power: yellow dot when power >=250W
+        bool p_warn = (data.power_drawn >= 250.0f);
         lv_obj_set_style_bg_color(dot_s3_power, p_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
         snprintf(buf, sizeof(buf) - 1, "%.2f W", data.power_drawn);
         lv_label_set_text(label_s3_power_val, buf);
-        lv_obj_set_style_text_color(label_s3_power_val, p_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::WHITE), 0);
 
-        // SoC: yellow dot + yellow value when ≤50%
-        bool soc_warn = (data.battery_percent <= 50.0f);
+        // SoC: yellow dot when ≤20%
+        bool soc_warn = (data.battery_percent <= 20.0f);
         lv_obj_set_style_bg_color(dot_s3_soc, soc_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
         snprintf(buf, sizeof(buf) - 1, "%.1f %%", data.battery_percent);
         lv_label_set_text(label_s3_soc_val, buf);
-        lv_obj_set_style_text_color(label_s3_soc_val, soc_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::WHITE), 0);
 
-        // Environment rows
+        // Temperature: yellow dot when >=45°C or <=10°C
         bool t_warn = (data.inv_temp >= 45.0f || data.inv_temp <= 10.0f);
         lv_obj_set_style_bg_color(dot_s3_temp, t_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
         snprintf(buf, sizeof(buf) - 1, "%.1f °C", data.inv_temp);
         lv_label_set_text(label_s3_temp_val, buf);
-        lv_obj_set_style_text_color(label_s3_temp_val, t_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::WHITE), 0);
 
+        // Humidity: yellow dot when >=70% or <=20%
         bool h_warn = (data.inv_hmdt >= 70.0f || data.inv_hmdt <= 20.0f);
         lv_obj_set_style_bg_color(dot_s3_hmdt, h_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
         snprintf(buf, sizeof(buf) - 1, "%.1f %%", data.inv_hmdt);
         lv_label_set_text(label_s3_hmdt_val, buf);
-        lv_obj_set_style_text_color(label_s3_hmdt_val, h_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::WHITE), 0);
 
         // Bottom row
         snprintf(buf, sizeof(buf) - 1, "%s", sys::batt_status_to_string(data.batt_status));
         lv_label_set_text(label_s3_batt_status, buf);
-        lv_obj_set_style_text_color(label_s3_batt_status, lv_color_hex(color::YELLOW), 0);
+        if (data.batt_status == sys::batt_status_t::IDLE) {
+            lv_obj_set_style_text_color(label_s3_batt_status, lv_color_hex(color::GREY), 0);
+        } else {
+            lv_obj_set_style_text_color(label_s3_batt_status, lv_color_hex(color::CYAN), 0);
+        }
 
         if (data.inv_status == sys::inv_status_t::ACTIVE) {
             lv_label_set_text(label_s3_inv_status, "ACTIVE");
@@ -964,11 +969,11 @@ namespace display {
         }
 
         // Runtime: HH:MM:SS
-        uint8_t hours   = data.runtime_left_s / 3600;
-        uint8_t minutes = (data.runtime_left_s % 3600) / 60;
-        uint8_t seconds = data.runtime_left_s % 60;
+        uint32_t hours   = data.runtime_left_s / 3600;
+        uint32_t minutes = (data.runtime_left_s % 3600) / 60;
+        uint32_t seconds = data.runtime_left_s % 60;
 
-        snprintf(buf, sizeof(buf) - 1, "%02u:%02u:%02u", hours, minutes, seconds);
+        snprintf(buf, sizeof(buf) - 1, "%02lu:%02lu:%02lu", hours, minutes, seconds);
         
         lv_label_set_text(label_s3_runtime, buf);
         lv_obj_set_style_text_color(label_s3_runtime, lv_color_hex(color::CYAN), 0);
@@ -989,6 +994,7 @@ namespace display {
     // Static helpers
     static inline lv_obj_t* create_panel(lv_obj_t* parent, uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
         lv_obj_t* p = lv_obj_create(parent);
+
         lv_obj_set_size(p, w, h);
         lv_obj_set_pos(p, x, y);
         lv_obj_set_style_bg_color(p, lv_color_hex(color::EERIE_BLACK), 0);
@@ -996,16 +1002,19 @@ namespace display {
         lv_obj_set_style_border_width(p, 1, 0);
         lv_obj_set_style_radius(p, 6, 0);
         lv_obj_clear_flag(p, LV_OBJ_FLAG_SCROLLABLE);
+        
         return p;
     }
 
     static inline lv_obj_t* create_dot(lv_obj_t* parent, uint16_t x, uint16_t y, lv_color_t col) {
         lv_obj_t* d = lv_obj_create(parent);
+
         lv_obj_set_size(d, 6, 6);
         lv_obj_set_pos(d, x, y);
         lv_obj_set_style_bg_color(d, col, 0);
         lv_obj_set_style_border_width(d, 0, 0);
         lv_obj_set_style_radius(d, 3, 0);
+
         return d;
     }
 

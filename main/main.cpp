@@ -310,6 +310,8 @@ static void queue_create() {
 
     LOGI("Starting log_task");
 
+    TWDT_ADD_TASK(log_task);
+
     // Open f_data_file for reading and writing in binary format
     // We first check if the file exists with rb+. If it exists, we proceed
     // NOTE: rb+ returns nullptr if the file doesn't exist
@@ -361,6 +363,8 @@ static void queue_create() {
 #if LOG_TASK_PROFILING == 1
         int64_t start = esp_timer_get_time();
 #endif
+
+        TWDT_RESET_FROM_TASK(log_task);
 
         if (xQueuePeek(final_data_queue, &data, pdMS_TO_TICKS(TIMEOUT_MS)) != pdTRUE) {
             LOGW("Failed to receive data from final_data_queue (log_task)");
@@ -642,7 +646,7 @@ static void queue_create() {
                     }
                     ret = ble::start();
                     if (ret == ESP_OK) {
-                        LOGI("BLE advertsing started");
+                        LOGI("BLE advertising started");
                         display::ble_popup(display::ble_popup_t::ACTIVATED);
                         is_ble_active = true;
                     } else {
@@ -660,7 +664,7 @@ static void queue_create() {
                     }
                     ret = ble::stop();
                     if (ret == ESP_OK) {
-                        LOGI("BLE advertsing stopped");
+                        LOGI("BLE advertising stopped");
                         display::ble_popup(display::ble_popup_t::DEACTIVATED);
                         is_ble_active = false;
                     } else {
