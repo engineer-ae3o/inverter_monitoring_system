@@ -66,8 +66,8 @@ namespace display {
     static constexpr uint32_t POPUP_TIMEOUT_US              = 2'000'000;
     static constexpr uint32_t TIMEOUT_MS                    = 200;
     
-    // Display buffer for LVGL (32 lines worth of pixels)
-    static constexpr size_t DISP_BUF_SIZE                   = config::LCD_WIDTH * 32;
+    // Display buffer size for LVGL (40 lines worth of pixels)
+    static constexpr size_t DISP_BUF_SIZE                   = config::LCD_WIDTH * 40;
     static constexpr uint16_t DISP_BOOTUP_SCREEN_TIME_MS    = 2500;
     
     // LVGL buffers
@@ -82,6 +82,7 @@ namespace display {
 
     // Alert queue, max 10 pending alerts
     static constexpr uint8_t ALERT_QUEUE_SIZE               = 10;
+    static bool alerts_enabled                              = false;
     static lv_obj_t* alert_popup_handle                     = nullptr;
     static esp_timer_handle_t alert_popup_close_timer       = nullptr;
 
@@ -244,7 +245,7 @@ namespace display {
                     lv_msgbox_close(alert_popup_handle);
                     alert_popup_handle = nullptr;
                 }
-                // Displays next queued alert popup, if any
+                // Display next queued alert popup, if any
                 show_next_alert();
                 xSemaphoreGive(display_mutex);
             },
@@ -398,11 +399,12 @@ namespace display {
             break;
         }
 
-        alert_handle_t alerts(data);
-
-        if (alerts.check_set_alerts()) {
-            alerts.display_warnings_if_alerts();
-            show_next_alert();
+        if (alerts_enabled) {
+            alert_handle_t alerts(data);
+            if (alerts.check_set_alerts()) {
+                alerts.display_warnings_if_alerts();
+                show_next_alert();
+            }
         }
 
         xSemaphoreGive(display_mutex);
@@ -532,8 +534,13 @@ namespace display {
     }
 
     [[nodiscard]] bool is_popup_active() {
-        if (ble_popup_handle || ble_popup_handle) return true;
+        if (ble_popup_handle || alert_popup_handle) return true;
         return false;
+    }
+
+    bool toggle_alert_popup_status() {
+        alerts_enabled = alerts_enabled ? false : true;
+        return alerts_enabled;
     }
 
     void push_alert(const entry_t& entry) {
@@ -629,13 +636,18 @@ namespace display {
             break;
         }
 
-        // Close any active alert popups if any
-        if (alert_popup_handle) lv_msgbox_close(alert_popup_handle);
+        // If there is a currently active popup, we return
+        if (alert_popup_handle) return;
         
         // Create msgbox on the currently visible screen
         alert_popup_handle = lv_msgbox_create(screens[current_screen_idx]);
         lv_msgbox_add_title(alert_popup_handle, entry.title);
         lv_msgbox_add_text(alert_popup_handle, entry.body);
+
+        // Apply styling
+        lv_obj_set_size(alert_popup_handle, 210, 120);
+        lv_obj_set_style_text_font(alert_popup_handle, &lv_font_montserrat_16, LV_PART_MAIN);
+        lv_obj_center(alert_popup_handle);
 
         // Style the title label as it's the first child of the message box
         lv_obj_t* title_label = lv_obj_get_child(alert_popup_handle, 0);
@@ -645,7 +657,8 @@ namespace display {
 
         // Start auto dismiss timer; if more alerts are queued,
         // the callback will chain into the next one automatically
-        esp_timer_start_once(alert_popup_close_timer, POPUP_TIMEOUT_US);
+        // The popups last half as long as the ble popups
+        esp_timer_start_once(alert_popup_close_timer, (POPUP_TIMEOUT_US / 2));
     }
 
     static void create_ble_logo() {

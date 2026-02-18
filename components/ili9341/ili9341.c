@@ -76,7 +76,7 @@ struct ili9341_driver_t {
 
 
 static ili9341_driver_t instances[ILI9341_MAX_INSTANCES] = {};
-static DMA_ATTR uint16_t pixels_buf[ILI9341_MAX_INSTANCES][ILI9341_MAX_WIDTH * 32] = {}; // DMA buffer
+static DMA_ATTR uint16_t pixels_buf[ILI9341_MAX_INSTANCES][ILI9341_MAX_WIDTH * 40] = {}; // DMA buffer
 
 static uint8_t instance_counter = 0;
 SemaphoreHandle_t instance_counter_mutex = NULL;

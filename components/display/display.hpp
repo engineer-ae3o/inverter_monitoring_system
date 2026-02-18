@@ -31,7 +31,7 @@ namespace display {
     /**
      * @brief Displays the bootup screen
      * 
-     * @note Must be called once after init and before calling any other function in this header
+     * @note Should be called once after init and before calling any other function in this header
      */
     void bootup_screen();
     
@@ -96,16 +96,23 @@ namespace display {
      * 
      * @param event BLE button event which occured
      * 
-     * @return true if popup event was executed successfully, false otherwise or if an invalid parameter was passed
+     * @return True if popup event was executed successfully, false otherwise or if an invalid parameter was passed
      */
     bool ble_popup(ble_popup_t event);
 
     /**
-     * @brief Checks if there is a BLE popup active
+     * @brief Checks if there is any popup active
      * 
-     * @return true if a BLE popup is active
+     * @return True if any popup is active
      */
     [[nodiscard]] bool is_popup_active();
+
+    /**
+     * @brief Toggles alert popup status
+     * 
+     * @return Alert popups new status
+     */
+    bool toggle_alert_popup_status();
 
     // Forward declared here; full definition is in alert.hpp
     struct entry_t;

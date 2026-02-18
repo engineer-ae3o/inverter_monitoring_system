@@ -54,8 +54,9 @@ namespace config {
     constexpr inline gpio_num_t BLE_PIN                              = GPIO_NUM_23;
     
     // Button specification
-    constexpr inline uint16_t BUTTON_DEBOUNCE_US                     = 50'000;     // 50ms
-    constexpr inline uint32_t BUTTON_LONG_PRESS_US                   = 2'000'000;  // 2s
+    constexpr inline uint16_t BUTTON_DEBOUNCE_US                     = 50'000;      // 50ms
+    constexpr inline uint32_t BUTTON_LONG_PRESS_US                   = 2'000'000;   // 2s
+    constexpr inline uint32_t BUTTON_EXTRA_LONG_PRESS_US             = 10'000'000;  // 10s
 
     // File data
     constexpr inline uint8_t NUM_OF_ITEMS_TO_STORE_TEMP              = 50;
@@ -75,7 +76,7 @@ namespace config {
     constexpr inline uint16_t LCD_HEIGHT                             = 320;
     constexpr inline uint16_t LCD_ROTATION                           = 2;
     constexpr inline uint16_t LCD_SPI_MAX_RETRIES                    = 4;
-    constexpr inline uint32_t LCD_SPI_CLK_SPEED                      = 80'000'000; // 80MHz
+    constexpr inline uint32_t LCD_SPI_CLK_SPEED                      = 65'000'000; // 65MHz
     constexpr inline spi_host_device_t LCD_SPI_HOST                  = SPI2_HOST;
     
     // Queue parameters

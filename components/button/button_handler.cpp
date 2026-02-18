@@ -61,7 +61,7 @@ namespace button {
 
     static int64_t start_prev_us = 0;
     static int64_t start_next_us = 0;
-    static int64_t start_BTN_us = 0;
+    static int64_t start_ble_us = 0;
 
 
     // Forward declarations
@@ -406,16 +406,18 @@ namespace button {
         event_t event = event_t::NO_EVENT;
 
         if (gpio_get_level(config::BLE_PIN) == 0) {
-            start_BTN_us = esp_timer_get_time();
+            start_ble_us = esp_timer_get_time();
             return;
 
         } else if (gpio_get_level(config::BLE_PIN) == 1) {
-            if (esp_timer_get_time() - start_BTN_us >= config::BUTTON_LONG_PRESS_US) {
+            if ((esp_timer_get_time() - start_ble_us) >= config::BUTTON_EXTRA_LONG_PRESS_US) {
+                event = event_t::BLE_EXTRA_LONG_PRESSED;
+            } else if ((esp_timer_get_time() - start_ble_us) >= config::BUTTON_LONG_PRESS_US) {
                 event = event_t::BLE_LONG_PRESSED;
             } else {
                 event = event_t::BLE_BUTTON_PRESSED;
             }
-            start_BTN_us = 0;
+            start_ble_us = 0;
         }
 
         // Only send button updates if screen is at 100% brightness, else, just set screen to full brightness

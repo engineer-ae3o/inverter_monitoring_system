@@ -17,21 +17,21 @@ namespace display {
             entry.severity = severity_t::CRITICAL;
             strncpy(entry.title, "VOLTAGE TOO LOW!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2fV  threshold: 9.0V\nBattery near empty.\nShutdown imminent.", data.battery_voltage);
+                "%.1fV  threshold: 9.0V\nBattery near empty.\nShutdown imminent.", data.battery_voltage);
             break;
 
         case voltage_t::LOW:
             entry.severity = severity_t::WARNING;
             strncpy(entry.title, "VOLTAGE LOW!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2fV  threshold: 10.5V\nBattery depleting.", data.battery_voltage);
+                "%.1fV  threshold: 10.5V\nBattery depleting.", data.battery_voltage);
             break;
 
         case voltage_t::HIGH:
             entry.severity = severity_t::WARNING;
             strncpy(entry.title, "VOLTAGE HIGH!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2fV  threshold: 12.6V\nPossible overcharge.", data.battery_voltage);
+                "%.1fV  threshold: 12.6V\nPossible overcharge.", data.battery_voltage);
             break;
 
         default:
@@ -50,28 +50,28 @@ namespace display {
             entry.severity = severity_t::CRITICAL;
             strncpy(entry.title, "CHARGE CURRENT TOO HIGH!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2fA  threshold: -15.0A\nCharger overcurrent.\nCheck charger.", data.load_current_drawn);
+                "%.1fA  threshold: -15.0A\nCharger overcurrent.\nCheck charger.", data.load_current_drawn);
             break;
 
         case current_t::CHARGE_HIGH:
             entry.severity = severity_t::WARNING;
             strncpy(entry.title, "CHARGE CURRENT HIGH!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2fA  threshold: -10.0A\nCharger current elevated.", data.load_current_drawn);
+                "%.1fA  threshold: -10.0A\nCharger current elevated.", data.load_current_drawn);
             break;
 
         case current_t::HIGH:
             entry.severity = severity_t::WARNING;
             strncpy(entry.title, "LOAD CURRENT HIGH!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2fA  threshold: 20.0A\nLoad approaching limit.", data.load_current_drawn);
+                "%.1fA  threshold: 20.0A\nLoad approaching limit.", data.load_current_drawn);
             break;
 
         case current_t::TOO_HIGH:
             entry.severity = severity_t::CRITICAL;
             strncpy(entry.title, "LOAD CURRENT TOO HIGH!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2fA  threshold: 25.0A\nLoad overcurrent.\nReduce load now.", data.load_current_drawn);
+                "%.1fA  threshold: 25.0A\nLoad overcurrent.\nReduce load now.", data.load_current_drawn);
             break;
 
         default:
@@ -90,28 +90,28 @@ namespace display {
             entry.severity = severity_t::CRITICAL;
             strncpy(entry.title, "TEMPERATURE TOO LOW!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f°C  threshold: 0°C\nFreezing conditions.\nCheck environment.", data.inv_temp);
+                "%.1f°C  threshold: 0°C\nFreezing conditions.\nCheck environment.", data.inv_temp);
             break;
 
         case temp_t::LOW:
             entry.severity = severity_t::WARNING;
             strncpy(entry.title, "TEMPERATURE LOW!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f°C  threshold: 10°C\nCold conditions.", data.inv_temp);
+                "%.1f°C  threshold: 10°C\nCold conditions.", data.inv_temp);
             break;
 
         case temp_t::HIGH:
             entry.severity = severity_t::WARNING;
             strncpy(entry.title, "TEMPERATURE HIGH!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f°C  threshold: 45°C\nTemperature elevated.", data.inv_temp);
+                "%.1f°C  threshold: 45°C\nTemperature elevated.", data.inv_temp);
             break;
 
         case temp_t::TOO_HIGH:
             entry.severity = severity_t::CRITICAL;
             strncpy(entry.title, "TEMPERATURE TOO HIGH!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f°C  threshold: 60°C\nThermal danger.\nCheck cooling.", data.inv_temp);
+                "%.1f°C  threshold: 60°C\nThermal danger.\nCheck cooling.", data.inv_temp);
             break;
 
         default:
@@ -130,28 +130,28 @@ namespace display {
             entry.severity = severity_t::CRITICAL;
             strncpy(entry.title, "HUMIDITY TOO LOW!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f%%  threshold: 10%%\nVery dry conditions.\nStatic risk.", data.inv_hmdt);
+                "%.1f%%  threshold: 10%%\nVery dry conditions.\nStatic risk.", data.inv_hmdt);
             break;
 
         case hmdt_t::LOW:
             entry.severity = severity_t::WARNING;
             strncpy(entry.title, "HUMIDITY LOW!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f%%  threshold: 20%%\nDry conditions.", data.inv_hmdt);
+                "%.1f%%  threshold: 20%%\nDry conditions.", data.inv_hmdt);
             break;
 
         case hmdt_t::HIGH:
             entry.severity = severity_t::WARNING;
             strncpy(entry.title, "HUMIDITY HIGH!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f%%  threshold: 70%%\nHumidity elevated.", data.inv_hmdt);
+                "%.1f%%  threshold: 70%%\nHumidity elevated.", data.inv_hmdt);
             break;
 
         case hmdt_t::TOO_HIGH:
             entry.severity = severity_t::CRITICAL;
             strncpy(entry.title, "HUMIDITY TOO HIGH!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f%%  threshold: 80%%\nCondensation risk.\nCheck ventilation.", data.inv_hmdt);
+                "%.1f%%  threshold: 80%%\nCondensation risk.\nCheck ventilation.", data.inv_hmdt);
             break;
 
         default:
@@ -170,28 +170,28 @@ namespace display {
             entry.severity = severity_t::CRITICAL;
             strncpy(entry.title, "BATTERY SoC TOO LOW!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f%%  threshold: 5%%\nNear shutdown.\nCharge immediately.", data.battery_percent);
+                "%.1f%%  threshold: 5%%\nNear shutdown.\nCharge immediately.", data.battery_percent);
             break;
 
         case batt_t::BELOW_10:
             entry.severity = severity_t::WARNING;
             strncpy(entry.title, "BATTERY SoC LOW!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f%%  threshold: 10%%\nBattery getting low.", data.battery_percent);
+                "%.1f%%  threshold: 10%%\nBattery getting low.", data.battery_percent);
             break;
 
         case batt_t::BELOW_15:
             entry.severity = severity_t::WARNING;
             strncpy(entry.title, "BATTERY SoC LOW!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f%%  threshold: 15%%\nBattery low.", data.battery_percent);
+                "%.1f%%  threshold: 15%%\nBattery low.", data.battery_percent);
             break;
 
         case batt_t::BELOW_50:
             entry.severity = severity_t::INFO;
             strncpy(entry.title, "BATTERY SoC NOTICE!", sizeof(entry.title) - 1);
             snprintf(entry.body, sizeof(entry.body) - 1,
-                "%.2f%%  threshold: 50%%\nBattery below half.", data.battery_percent);
+                "%.1f%%  threshold: 50%%\nBattery below half.", data.battery_percent);
             break;
 
         default:

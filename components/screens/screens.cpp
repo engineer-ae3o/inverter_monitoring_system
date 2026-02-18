@@ -143,7 +143,7 @@ namespace display {
         lv_label_set_text(stats, "STATS");
         lv_obj_set_style_text_color(stats, lv_color_hex(color::GREY), 0);
         lv_obj_set_style_text_font(stats, &lv_font_montserrat_12, 0);
-        lv_obj_align(stats, LV_ALIGN_CENTER, 0, -35);
+        lv_obj_align(stats, LV_ALIGN_CENTER, 0, -28);
 
         // 3 columns
         static constexpr const uint8_t col_x[3] = { 10, 77, 150 };
@@ -757,13 +757,13 @@ namespace display {
         lv_label_set_text(label_s0_hmdt_value, buf);
 
         // Live values
-        snprintf(buf, sizeof(buf) - 1, "%.1f", data.battery_voltage);
+        snprintf(buf, sizeof(buf) - 1, "%.2f", data.battery_voltage);
         lv_label_set_text(label_s0_voltage, buf);
 
-        snprintf(buf, sizeof(buf) - 1, "%.1f", data.load_current_drawn);
+        snprintf(buf, sizeof(buf) - 1, "%.2f", data.load_current_drawn);
         lv_label_set_text(label_s0_current, buf);
 
-        snprintf(buf, sizeof(buf) - 1, "%.1f", data.power_drawn);
+        snprintf(buf, sizeof(buf) - 1, "%.2f", data.power_drawn);
         lv_label_set_text(label_s0_power, buf);
 
         // Bottom row
@@ -798,12 +798,13 @@ namespace display {
 
         // Voltage bar
         float voltage = data.battery_voltage;
-        // Clamp voltage
-        if (voltage < 6.0f) voltage = 6.0f;
-        else if (voltage > 12.6f) voltage = 12.6f;
 
         snprintf(buf, sizeof(buf) - 1, "%.2f V", voltage);
         lv_label_set_text(label_s1_voltage_val, buf);
+
+        // Clamp voltage
+        if (voltage < 6.0f) voltage = 6.0f;
+        else if (voltage > 12.6f) voltage = 12.6f;
         
         lv_bar_set_value(label_s1_voltage_bar, static_cast<int32_t>(voltage), LV_ANIM_ON);
         // Determine color of bar
@@ -840,7 +841,7 @@ namespace display {
         char buf[64]{};
 
         // Temperature
-        snprintf(buf, sizeof(buf) - 1, "%.3f°C", data.inv_temp);
+        snprintf(buf, sizeof(buf) - 1, "%.1f°C", data.inv_temp);
         lv_label_set_text(label_s2_temp_val, buf);
 
         float temperature = data.inv_temp;
@@ -929,7 +930,7 @@ namespace display {
         lv_label_set_text(label_s3_power_val, buf);
         lv_obj_set_style_text_color(label_s3_power_val, p_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::WHITE), 0);
 
-        // SoC: yellow dot + yellow value when ≤50% (matches screenshot)
+        // SoC: yellow dot + yellow value when ≤50%
         bool soc_warn = (data.battery_percent <= 50.0f);
         lv_obj_set_style_bg_color(dot_s3_soc, soc_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
         snprintf(buf, sizeof(buf) - 1, "%.1f %%", data.battery_percent);
@@ -962,10 +963,13 @@ namespace display {
             lv_obj_set_style_text_color(label_s3_inv_status, lv_color_hex(color::GREY), 0);
         }
 
-        // Runtime: HH:MM only (screenshot shows "04:32", no seconds)
+        // Runtime: HH:MM:SS
         uint8_t hours   = data.runtime_left_s / 3600;
         uint8_t minutes = (data.runtime_left_s % 3600) / 60;
-        snprintf(buf, sizeof(buf) - 1, "%02u:%02u", hours, minutes);
+        uint8_t seconds = data.runtime_left_s % 60;
+
+        snprintf(buf, sizeof(buf) - 1, "%02u:%02u:%02u", hours, minutes, seconds);
+        
         lv_label_set_text(label_s3_runtime, buf);
         lv_obj_set_style_text_color(label_s3_runtime, lv_color_hex(color::CYAN), 0);
     }

@@ -14,7 +14,8 @@ namespace button {
         NEXT_LONG_PRESSED,
         PREV_LONG_PRESSED,
         BLE_BUTTON_PRESSED,
-        BLE_LONG_PRESSED
+        BLE_LONG_PRESSED,
+        BLE_EXTRA_LONG_PRESSED
     };
 
     /**

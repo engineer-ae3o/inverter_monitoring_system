@@ -204,7 +204,7 @@ static void queue_create() {
     }
 }
 
-// LVGL handler task
+// LVGL timers handler task
 [[noreturn]] void lvgl_handler_task(void* arg) {
 
     LOGI("Starting lvgl_handler_task");
@@ -550,7 +550,7 @@ static void queue_create() {
     }
 }
 
-// Task that controls UI updates
+// Display control task
 [[noreturn]] void display_task(void* arg) {
 
     LOGI("Starting display_task");
@@ -667,6 +667,11 @@ static void queue_create() {
                         LOGE("Failed to stop BLE advertising: %s", esp_err_to_name(ret));
                         display::ble_popup(display::ble_popup_t::DEACTIVATION_FAILED);
                     }
+                    break;
+
+                // Debug utility: turn off alert popups
+                case button::event_t::BLE_EXTRA_LONG_PRESSED:
+                    display::toggle_alert_popup_status();
                     break;
 
                 default:
