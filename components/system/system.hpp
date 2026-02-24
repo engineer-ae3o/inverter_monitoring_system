@@ -8,7 +8,7 @@
 
 #define ASSERT(exp, msg)                                                       \
     do {                                                                       \
-        if (!exp) {                                                            \
+        if (!(exp)) {                                                            \
             ESP_LOGE("ASSERT", "Assert failed: %s", #msg);                     \
             ESP_LOGE("ASSERT", "File: %s, Line: %d", __FILE__, __LINE__);      \
             esp_restart();                                                     \
@@ -18,7 +18,7 @@
 // Alternative assert handler not requiring a message
 #define ASSERT_(exp)                                                           \
     do {                                                                       \
-        if (!exp) {                                                            \
+        if (!(exp)) {                                                            \
             ESP_LOGE("ASSERT", "Assert failed: %s", #exp);                     \
             ESP_LOGE("ASSERT", "File: %s, Line: %d", __FILE__, __LINE__);      \
             esp_restart();                                                     \

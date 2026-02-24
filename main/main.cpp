@@ -88,7 +88,6 @@ struct file_data_t {
     float current;
     float temperature;
     float humidity;
-    float battery_soc;
 };
 
 static esp_timer_handle_t display_led_timer_handle   = nullptr;
@@ -338,11 +337,22 @@ static void queue_create() {
         f_meta_data_file = fopen(META_DATA_FILE_NAME, "wb+");
         ASSERT(f_meta_data_file, "f_meta_data_file cannot be null");
         // We then write data_file_idx's initial 0 value to it
-        ASSERT((fwrite(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file) == 1), "Failed to write data_file_idx to metadata file");
+        ASSERT((fwrite(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file) == 1),
+                "Failed to write data_file_idx to metadata file");
     } else {
-        // Since the file exists, we read from it and we bounds check against MAX_SAMPLES_TO_LOG
-        ASSERT((fread(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file) == 1), "Failed to read file index");
-        if (data_file_idx >= MAX_SAMPLES_TO_LOG) {
+        // Since the file exists, we read from it to get the data file index
+        int ret = fread(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file);
+        // We also have to check if the return value is 0 as that means the file is empty
+        // as `fread()` returns the number of elements it was able to read
+        ASSERT((ret == 1) || (ret == 0), "Failed to read file index");
+        // Write the index of zero to the file if it is empty
+        if (ret == 0) {
+            data_file_idx = 0;
+            ASSERT((fwrite(&data_file_idx, sizeof(data_file_idx), 1, f_meta_data_file) == 1),
+                    "Failed to write data_file_idx to metadata file when it exists but is empty");
+        }
+        // Bounds check if we were able to read from the file
+        else if ((data_file_idx >= MAX_SAMPLES_TO_LOG) && (ret == 1)) {
             data_file_idx = 0;
         }
     }
@@ -381,7 +391,6 @@ static void queue_create() {
         file_data.current     = data.load_current_drawn;
         file_data.temperature = data.inv_temp;
         file_data.humidity    = data.inv_hmdt;
-        file_data.battery_soc = data.battery_percent;
 
         // Store the received data in temporary buffer and increment index
         data_buffer_temp[temp_buffer_idx++] = file_data;
@@ -583,11 +592,11 @@ static void queue_create() {
     vTaskDelay(pdMS_TO_TICKS(150));
     display::create_ui();
 
-    // Create graph screens
-    display::graph_samples_t env{};
-    display::graph_samples_t pow{};
+    // // Create graph screens
+    // display::graph_samples_t env{};
+    // display::graph_samples_t pow{};
 
-    create_graph_screen(env, pow);
+    // create_graph_screen(env, pow);
     
     // Discard all button press events that may have occurred before the bootup screen finished loading
     xQueueReset(btn_queue);
