@@ -58,7 +58,7 @@ namespace display {
     static constexpr uint8_t POW_GRAPH_IDX                  = 5;
 
     // BLE popup and logo
-    static lv_obj_t* ble_popup_handle                       = nullptr;s
+    static lv_obj_t* ble_popup_handle                       = nullptr;
     static esp_timer_handle_t ble_popup_close_timer         = nullptr;
 
     // Timeouts
