@@ -282,8 +282,6 @@ namespace display {
         lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 5);
 
         // Temperature panel
-        // Bar maps 0°C to 60°C across 216px
-        // Zone boundaries: 10°C = 10 / (60 * 216) = 36px,  45°C = 45 / (60 * 216) = 162px
         lv_obj_t* tp = create_panel(screens[2], 4, 24, 232, 106);
 
         lv_obj_t* tp_hdr = lv_label_create(tp);
@@ -299,22 +297,22 @@ namespace display {
         lv_obj_align(label_s2_temp_val, LV_ALIGN_TOP_RIGHT, -8, 4);
 
         // Zone backgrounds (3 rects covering the full bar width)
-        // Cold/blue: 0..36px
+        // Cold/blue
         lv_obj_t* tz_g = lv_obj_create(tp);
-        lv_obj_set_size(tz_g, 36, 22);
+        lv_obj_set_size(tz_g, 28, 22);
         lv_obj_set_pos(tz_g, 8, 26);
         lv_obj_set_style_bg_color(tz_g, lv_color_hex(color::BLUE), 0);
         lv_obj_set_style_border_width(tz_g, 0, 0);
         lv_obj_set_style_radius(tz_g, 2, 0);
-        // Normal/yellow: 36..162px
+        // Normal/yellow
         lv_obj_t* tz_y = lv_obj_create(tp);
-        lv_obj_set_size(tz_y, 126, 22);
+        lv_obj_set_size(tz_y, 118, 22);
         lv_obj_set_pos(tz_y, 44, 26);
         lv_obj_set_style_bg_color(tz_y, lv_color_hex(color::YELLOW), 0);
         lv_obj_set_style_border_width(tz_y, 0, 0);
-        // Hot/red: 162..216px
+        // Hot/red
         lv_obj_t* tz_r = lv_obj_create(tp);
-        lv_obj_set_size(tz_r, 54, 22);
+        lv_obj_set_size(tz_r, 46, 22);
         lv_obj_set_pos(tz_r, 170, 26);
         lv_obj_set_style_bg_color(tz_r, lv_color_hex(color::RED), 0);
         lv_obj_set_style_border_width(tz_r, 0, 0);
@@ -341,9 +339,9 @@ namespace display {
         lv_obj_set_style_text_font(label_s2_temp_tick, &lv_font_montserrat_10, 0);
         lv_obj_set_pos(label_s2_temp_tick, 8, 26);
 
-        // Scale: 0°C = 0px, 10°C = 36px, 45°C = 162px, 60°C = 216px
+        // Scale
         constexpr const char* ts_txt[] = { "0°C", "10°C", "45°C", "60°C" };
-        constexpr const uint8_t ts_x[] = { 8, 44, 162, 212 };
+        constexpr const uint8_t ts_x[] = { 0, 28, 146, 196 };
 
         for (uint8_t i = 0; i < 4; i++) {
             lv_obj_t* sl = lv_label_create(tp);
@@ -354,8 +352,6 @@ namespace display {
         }
 
         // Humidity panel
-        // Bar maps 0%..100% across 216px
-        // Zone boundaries: 20% = 43px, 70% = 151px
         lv_obj_t* hm = create_panel(screens[2], 4, 136, 232, 106);
 
         lv_obj_t* hm_hdr = lv_label_create(hm);
@@ -371,20 +367,20 @@ namespace display {
         lv_obj_align(label_s2_hmdt_val, LV_ALIGN_TOP_RIGHT, -8, 4);
 
         // Zone backgrounds
-        // Dry/green: 0..43px
+        // Dry/green
         lv_obj_t* hz_g = lv_obj_create(hm);
         lv_obj_set_size(hz_g, 43, 22);
         lv_obj_set_pos(hz_g, 8, 26);
         lv_obj_set_style_bg_color(hz_g, lv_color_hex(color::EERIE_BLACK), 0);
         lv_obj_set_style_border_width(hz_g, 0, 0);
         lv_obj_set_style_radius(hz_g, 2, 0);
-        // Normal/yellow: 43..151px
+        // Normal/yellow
         lv_obj_t* hz_y = lv_obj_create(hm);
         lv_obj_set_size(hz_y, 108, 22);
         lv_obj_set_pos(hz_y, 51, 26);
         lv_obj_set_style_bg_color(hz_y, lv_color_hex(color::EERIE_BLACK), 0);
         lv_obj_set_style_border_width(hz_y, 0, 0);
-        // Humid/red: 151..216px
+        // Humid/red
         lv_obj_t* hz_r = lv_obj_create(hm);
         lv_obj_set_size(hz_r, 65, 22);
         lv_obj_set_pos(hz_r, 159, 26);
@@ -413,7 +409,7 @@ namespace display {
         lv_obj_set_style_text_font(label_s2_hmdt_tick, &lv_font_montserrat_10, 0);
         lv_obj_set_pos(label_s2_hmdt_tick, 8, 26);
 
-        // Scale: 0%=0px, 20%=43px, 70%=151px, 100%=216px
+        // Scale
         constexpr const char* hs_txt[] = { "0%", "20%", "70%", "100%" };
         constexpr const uint8_t hs_x[] = { 8, 51, 151, 208 };
 
@@ -429,7 +425,7 @@ namespace display {
         lv_obj_t* bot = create_panel(screens[2], 4, 248, 232, 52);
 
         lv_obj_t* rt_hdr = lv_label_create(bot);
-        lv_label_set_text(rt_hdr, "RUNTIME LEFT");
+        lv_label_set_text(rt_hdr, "RUNTIME");
         lv_obj_set_style_text_color(rt_hdr, lv_color_hex(color::GREY), 0);
         lv_obj_set_style_text_font(rt_hdr, &lv_font_montserrat_10, 0);
         lv_obj_set_pos(rt_hdr, 10, 2);
@@ -638,6 +634,8 @@ namespace display {
         
         lv_chart_set_series_values(batt_env_chart, temp_series, tempi32, temp.size());
         lv_chart_set_series_values(batt_env_chart, hmdt_series, hmdti32, hmdt.size());
+
+        lv_chart_refresh(batt_env_chart);
     }
 
     void create_screen_5(const graph_samples_t& samples) {
@@ -706,8 +704,10 @@ namespace display {
             curri32[i] = static_cast<int32_t>(current[i]);
         }
         
-        lv_chart_set_series_values(batt_env_chart, voltage_series, volti32, voltage.size());
-        lv_chart_set_series_values(batt_env_chart, current_series, curri32, current.size());
+        lv_chart_set_series_values(power_chart, voltage_series, volti32, voltage.size());
+        lv_chart_set_series_values(power_chart, current_series, curri32, current.size());
+
+        lv_chart_refresh(power_chart);
     }
 
     // Updating screens
@@ -723,7 +723,7 @@ namespace display {
             style_badge(label_s0_batt_badge, "WARN", lv_color_hex(color::YELLOW), lv_color_hex(color::BLACK));
             lv_obj_set_style_text_color(label_s0_batt_value, lv_color_hex(color::YELLOW), 0);
         }
-        snprintf(buf, sizeof(buf) - 1, "%.0f%%", data.battery_percent);
+        snprintf(buf, sizeof(buf), "%.0f%%", data.battery_percent);
         lv_label_set_text(label_s0_batt_value, buf);
 
         // INV card
@@ -745,7 +745,7 @@ namespace display {
             style_badge(label_s0_temp_badge, "OK", lv_color_hex(color::GREEN), lv_color_hex(color::BLACK));
             lv_obj_set_style_text_color(label_s0_temp_value, lv_color_hex(color::GREEN), 0);
         }
-        snprintf(buf, sizeof(buf) - 1, "%.0f°C", data.inv_temp);
+        snprintf(buf, sizeof(buf), "%.0f°C", data.inv_temp);
         lv_label_set_text(label_s0_temp_value, buf);
 
         // HMDT card
@@ -756,17 +756,17 @@ namespace display {
             style_badge(label_s0_hmdt_badge, "OK", lv_color_hex(color::GREEN), lv_color_hex(color::BLACK));
             lv_obj_set_style_text_color(label_s0_hmdt_value, lv_color_hex(color::GREEN), 0);
         }
-        snprintf(buf, sizeof(buf) - 1, "%.0f%%", data.inv_hmdt);
+        snprintf(buf, sizeof(buf), "%.0f%%", data.inv_hmdt);
         lv_label_set_text(label_s0_hmdt_value, buf);
 
         // Live values
-        snprintf(buf, sizeof(buf) - 1, "%.2f", data.battery_voltage);
+        snprintf(buf, sizeof(buf), "%.2f", data.battery_voltage);
         lv_label_set_text(label_s0_voltage, buf);
 
-        snprintf(buf, sizeof(buf) - 1, "%.2f", data.load_current_drawn);
+        snprintf(buf, sizeof(buf), "%.2f", data.load_current_drawn);
         lv_label_set_text(label_s0_current, buf);
 
-        snprintf(buf, sizeof(buf) - 1, "%.2f", data.power_drawn);
+        snprintf(buf, sizeof(buf), "%.2f", data.power_drawn);
         lv_label_set_text(label_s0_power, buf);
 
         // Bottom row
@@ -774,11 +774,11 @@ namespace display {
         uint8_t minutes = (data.runtime_left_s % 3600) / 60;
         uint8_t seconds = data.runtime_left_s % 60;
 
-        snprintf(buf, sizeof(buf) - 1, "%02u:%02u:%02u", hours, minutes, seconds);
+        snprintf(buf, sizeof(buf), "%02u:%02u:%02u", hours, minutes, seconds);
         lv_label_set_text(label_s0_runtime, buf);
         lv_obj_set_style_text_color(label_s0_runtime, lv_color_hex(color::CYAN), 0);
 
-        snprintf(buf, sizeof(buf) - 1, "%s", sys::batt_status_to_string(data.batt_status));
+        snprintf(buf, sizeof(buf), "%s", sys::batt_status_to_string(data.batt_status));
         lv_label_set_text(label_s0_batt_status, buf);
         lv_obj_set_style_text_color(label_s0_batt_status, lv_color_hex(color::YELLOW), 0);
 
@@ -796,13 +796,13 @@ namespace display {
         char buf[16]{};
 
         // Power label
-        snprintf(buf, sizeof(buf) - 1, "%.2fW", data.power_drawn);
+        snprintf(buf, sizeof(buf), "%.2fW", data.power_drawn);
         lv_label_set_text(label_s1_power, buf);
 
         // Voltage bar
         float voltage = data.battery_voltage;
 
-        snprintf(buf, sizeof(buf) - 1, "%.2f V", voltage);
+        snprintf(buf, sizeof(buf), "%.2f V", voltage);
         lv_label_set_text(label_s1_voltage_val, buf);
 
         // Clamp voltage
@@ -825,7 +825,7 @@ namespace display {
         if (current < -20.0f) current = -20.0f;
         else if (current > 25.0f) current = 25.0f;
 
-        snprintf(buf, sizeof(buf) - 1, "%.2f A", current);
+        snprintf(buf, sizeof(buf), "%.2f A", current);
         lv_label_set_text(label_s1_current_val, buf);
 
         lv_bar_set_value(label_s1_current_bar, static_cast<int32_t>(current), LV_ANIM_ON);
@@ -844,13 +844,13 @@ namespace display {
         char buf[64]{};
 
         // Temperature
-        snprintf(buf, sizeof(buf) - 1, "%.1f°C", data.inv_temp);
+        snprintf(buf, sizeof(buf), "%.1f°C", data.inv_temp);
         lv_label_set_text(label_s2_temp_val, buf);
 
         float temperature = data.inv_temp;
         if (temperature < 0.0f)  temperature = 0.0f;
         if (temperature > 60.0f) temperature = 60.0f;
-        int32_t t_px = (int32_t)((temperature / 60.0f) * 216.0f);
+        int32_t t_px = static_cast<int32_t>((temperature / 60.0f) * 216.0f);
         lv_obj_set_width(bar_s2_temp_fill, t_px);
 
         if (temperature >= 45.0f) {
@@ -862,31 +862,32 @@ namespace display {
         }
 
         // Overlay centered on filled portion
-        snprintf(buf, sizeof(buf) - 1, "%.1f", data.inv_temp);
+        snprintf(buf, sizeof(buf), "%.1f", data.inv_temp);
         lv_label_set_text(label_s2_temp_overlay, buf);
         lv_obj_set_x(label_s2_temp_overlay, (t_px > 30) ? (8 + t_px / 2 - 15) : 8);
 
         lv_obj_set_x(label_s2_temp_tick, 8 + (t_px > 3 ? t_px - 3 : 0));
 
         // Humidity
-        snprintf(buf, sizeof(buf) - 1, "%.1f%%", data.inv_hmdt);
-        lv_label_set_text(label_s2_hmdt_val, buf);
-
         float humidity = data.inv_hmdt;
         if (humidity < 0.0f) humidity = 0.0f;
         if (humidity > 100.0f) humidity = 100.0f;
-        int32_t h_px = (int32_t)((humidity / 100.0f) * 216.0f);
+
+        snprintf(buf, sizeof(buf), "%.1f%%", humidity);
+        lv_label_set_text(label_s2_hmdt_val, buf);
+
+        int32_t h_px = static_cast<int32_t>((humidity / 100.0f) * 216.0f);
         lv_obj_set_width(bar_s2_hmdt_fill, h_px);
 
         if (humidity >= 70.0f) {
             lv_obj_set_style_bg_color(bar_s2_hmdt_fill, lv_color_hex(color::YELLOW), 0);
-        } else if (humidity >= 20.0f) {
+        } else if (humidity > 20.0f) {
             lv_obj_set_style_bg_color(bar_s2_hmdt_fill, lv_color_hex(color::GREEN), 0);
         } else {
-            lv_obj_set_style_bg_color(bar_s2_hmdt_fill, lv_color_hex(0x4488FF), 0);
+            lv_obj_set_style_bg_color(bar_s2_hmdt_fill, lv_color_hex(color::RED), 0);
         }
 
-        snprintf(buf, sizeof(buf) - 1, "%.0f", data.inv_hmdt);
+        snprintf(buf, sizeof(buf), "%.0f", humidity);
         lv_label_set_text(label_s2_hmdt_overlay, buf);
         lv_obj_set_x(label_s2_hmdt_overlay, (h_px > 24) ? (8 + h_px / 2 - 12) : 8);
 
@@ -896,7 +897,7 @@ namespace display {
         uint8_t hours   = data.runtime_left_s / 3600;
         uint8_t minutes = (data.runtime_left_s % 3600) / 60;
         uint8_t seconds = data.runtime_left_s % 60;
-        snprintf(buf, sizeof(buf) - 1, "%02u:%02u:%02u", hours, minutes, seconds);
+        snprintf(buf, sizeof(buf), "%02u:%02u:%02u", hours, minutes, seconds);
         lv_label_set_text(label_s2_runtime, buf);
 
         if (data.inv_status == sys::inv_status_t::ACTIVE) {
@@ -918,41 +919,41 @@ namespace display {
         // Voltage: yellow dot when voltage >12.6V or <= 10.5V
         bool v_warn = (data.battery_voltage <= 10.5f || data.battery_voltage > 12.6f);
         lv_obj_set_style_bg_color(dot_s3_voltage, v_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
-        snprintf(buf, sizeof(buf) - 1, "%.2f V", data.battery_voltage);
+        snprintf(buf, sizeof(buf), "%.2f V", data.battery_voltage);
         lv_label_set_text(label_s3_voltage_val, buf);
 
         // Current: yellow dot when current >=20A or <=-15A
         bool i_warn = (data.load_current_drawn >= 20.0f || data.load_current_drawn <= -15.0f);
         lv_obj_set_style_bg_color(dot_s3_current, i_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
-        snprintf(buf, sizeof(buf) - 1, "%.2f A", data.load_current_drawn);
+        snprintf(buf, sizeof(buf), "%.2f A", data.load_current_drawn);
         lv_label_set_text(label_s3_current_val, buf);
 
         // Power: yellow dot when power >=250W
         bool p_warn = (data.power_drawn >= 250.0f);
         lv_obj_set_style_bg_color(dot_s3_power, p_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
-        snprintf(buf, sizeof(buf) - 1, "%.2f W", data.power_drawn);
+        snprintf(buf, sizeof(buf), "%.2f W", data.power_drawn);
         lv_label_set_text(label_s3_power_val, buf);
 
         // SoC: yellow dot when ≤20%
         bool soc_warn = (data.battery_percent <= 20.0f);
         lv_obj_set_style_bg_color(dot_s3_soc, soc_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
-        snprintf(buf, sizeof(buf) - 1, "%.1f %%", data.battery_percent);
+        snprintf(buf, sizeof(buf), "%.1f %%", data.battery_percent);
         lv_label_set_text(label_s3_soc_val, buf);
 
         // Temperature: yellow dot when >=45°C or <=10°C
         bool t_warn = (data.inv_temp >= 45.0f || data.inv_temp <= 10.0f);
         lv_obj_set_style_bg_color(dot_s3_temp, t_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
-        snprintf(buf, sizeof(buf) - 1, "%.1f °C", data.inv_temp);
+        snprintf(buf, sizeof(buf), "%.1f °C", data.inv_temp);
         lv_label_set_text(label_s3_temp_val, buf);
 
         // Humidity: yellow dot when >=70% or <=20%
         bool h_warn = (data.inv_hmdt >= 70.0f || data.inv_hmdt <= 20.0f);
         lv_obj_set_style_bg_color(dot_s3_hmdt, h_warn ? lv_color_hex(color::YELLOW) : lv_color_hex(color::GREEN), 0);
-        snprintf(buf, sizeof(buf) - 1, "%.1f %%", data.inv_hmdt);
+        snprintf(buf, sizeof(buf), "%.1f %%", data.inv_hmdt);
         lv_label_set_text(label_s3_hmdt_val, buf);
 
         // Bottom row
-        snprintf(buf, sizeof(buf) - 1, "%s", sys::batt_status_to_string(data.batt_status));
+        snprintf(buf, sizeof(buf), "%s", sys::batt_status_to_string(data.batt_status));
         lv_label_set_text(label_s3_batt_status, buf);
         if (data.batt_status == sys::batt_status_t::IDLE) {
             lv_obj_set_style_text_color(label_s3_batt_status, lv_color_hex(color::GREY), 0);
@@ -973,7 +974,7 @@ namespace display {
         uint32_t minutes = (data.runtime_left_s % 3600) / 60;
         uint32_t seconds = data.runtime_left_s % 60;
 
-        snprintf(buf, sizeof(buf) - 1, "%02lu:%02lu:%02lu", hours, minutes, seconds);
+        snprintf(buf, sizeof(buf), "%02lu:%02lu:%02lu", hours, minutes, seconds);
         
         lv_label_set_text(label_s3_runtime, buf);
         lv_obj_set_style_text_color(label_s3_runtime, lv_color_hex(color::CYAN), 0);

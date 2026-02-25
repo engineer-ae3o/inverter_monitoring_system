@@ -284,11 +284,7 @@ static void queue_create() {
         }
 
         xQueueOverwrite(aht_queue, &data);
-
-        LOGI("Heap free size: %u. Minimum heap size: %u. Largest block: %u",
-            heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
-            heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-
+        
 #if AHT_TASK_PROFILING == 1
         end[i] = esp_timer_get_time() - start;
         LOGI("Time for aht_task: %.3fms", static_cast<float>(end[i]) / 1000.0f);
@@ -592,11 +588,17 @@ static void queue_create() {
     vTaskDelay(pdMS_TO_TICKS(150));
     display::create_ui();
 
-    // // Create graph screens
-    // display::graph_samples_t env{};
-    // display::graph_samples_t pow{};
-
-    // create_graph_screen(env, pow);
+    // UNUSED FEATURE: Graph screens could not be used due
+    // to insufficient memory of the ESP32. I could try to
+    // make optimizations, but I'm tired already.
+    // Next project, here I come
+    /**
+     * // Create graph screens
+     * display::graph_samples_t env{};
+     * display::graph_samples_t pow{};
+     * 
+     * create_graph_screen(env, pow);
+     */
     
     // Discard all button press events that may have occurred before the bootup screen finished loading
     xQueueReset(btn_queue);
@@ -639,15 +641,21 @@ static void queue_create() {
                     display::prev_screen();
                     break;
 
+                // Unfortunately, the graph screens have to
+                // dropped for now
                 // Load graph screen for voltage and current
                 case button::event_t::NEXT_LONG_PRESSED:
-                    display::pow_graph_screen();
+                    display::next_screen();
+                    // display::pow_graph_screen();
                     LOGI("NEXT button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1'000'000));
                     break;
 
+                // Unfortunately, the graph screens have to
+                // dropped for now
                 // Load graph screen for temperature and humidity
                 case button::event_t::PREV_LONG_PRESSED:
-                    display::env_graph_screen();
+                    display::prev_screen();
+                    // display::env_graph_screen();
                     LOGI("PREV button pressed for at least %lus", (BUTTON_LONG_PRESS_US / 1'000'000));
                     break;
 

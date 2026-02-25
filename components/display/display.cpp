@@ -58,8 +58,7 @@ namespace display {
     static constexpr uint8_t POW_GRAPH_IDX                  = 5;
 
     // BLE popup and logo
-    static lv_obj_t* ble_popup_handle                       = nullptr;
-    static lv_obj_t* ble_logo_handle                        = nullptr;
+    static lv_obj_t* ble_popup_handle                       = nullptr;s
     static esp_timer_handle_t ble_popup_close_timer         = nullptr;
 
     // Timeouts
@@ -165,8 +164,6 @@ namespace display {
     static void disp_flush_cb(lv_display_t* display, const lv_area_t* area, uint8_t* px_map);
     static void create_animated_loading_bar(lv_obj_t* parent, uint8_t w, uint8_t h, uint16_t time_ms);
     static void show_next_alert();
-    static void create_ble_logo();
-    static void destroy_ble_logo();
     
     
     // Public functions
@@ -519,15 +516,6 @@ namespace display {
         lv_scr_load(screens[current_screen_idx]);
         esp_timer_start_once(ble_popup_close_timer, POPUP_TIMEOUT_US);
 
-        // Create the BLE logo if BLE was just activated
-        if (event == ble_popup_t::ACTIVATED) {
-            create_ble_logo();
-        }
-        // Destroy the BLE logo if BLE was just deactivated
-        else if (event == ble_popup_t::DEACTIVATED) {
-            destroy_ble_logo();
-        }
-
         xSemaphoreGive(display_mutex);
 
         return true;
@@ -660,12 +648,4 @@ namespace display {
         esp_timer_start_once(alert_popup_close_timer, POPUP_TIMEOUT_US);
     }
 
-    static void create_ble_logo() {
-
-    }
-    
-    static void destroy_ble_logo() {
-
-    }
-    
 } // namespace display
