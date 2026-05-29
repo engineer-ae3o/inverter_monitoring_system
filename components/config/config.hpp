@@ -5,6 +5,9 @@
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 
+#include <cstdint>
+
+
 namespace config {
 
     // Tasks specifications
